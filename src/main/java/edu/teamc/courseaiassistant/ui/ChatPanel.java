@@ -1,9 +1,15 @@
 package edu.teamc.courseaiassistant.ui;
 
+import edu.teamc.courseaiassistant.application.RequestCoordinator;
 import edu.teamc.courseaiassistant.context.CodeContext;
+import edu.teamc.courseaiassistant.model.ChatAnswer;
+import edu.teamc.courseaiassistant.model.ChatRequest;
+import edu.teamc.courseaiassistant.model.ServiceFailure;
 import edu.teamc.courseaiassistant.sample.SampleReply;
 import edu.teamc.courseaiassistant.sample.SampleReplyProvider;
 import edu.teamc.courseaiassistant.sample.SampleScenario;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -17,7 +23,8 @@ import java.util.Objects;
 
 /** Local chat view. Never changes IDE theme, editor settings, or source files. */
 public final class ChatPanel extends JPanel {
-    private final SampleReplyProvider replies;
+    private final @Nullable SampleReplyProvider sampleReplies;
+    private final @Nullable RequestCoordinator coordinator;
     private final ConversationView conversation = new ConversationView();
     private final JTextArea question = new ChatWidgets.Input();
     private final JComboBox<SampleScenario> scenario = new ChatWidgets.ExampleSelector<>(SampleScenario.values());
@@ -26,11 +33,22 @@ public final class ChatPanel extends JPanel {
     private final JLabel status = new ChatWidgets.Label("Enter to send, Shift+Enter for new line", -1, false, true);
     private final JScrollPane history = ChatWidgets.scrollPane(conversation);
     private final JPanel contextPreviewPanel = new JPanel(new BorderLayout());
+    private final JLabel loadingIndicator = new ChatWidgets.Label("Thinking…", -1, false, true);
     private CodeContext currentContext;
+    private String currentRequestId;
+    private boolean isWaitingForResponse;
 
     public ChatPanel(SampleReplyProvider replies) {
+        this(replies, null);
+    }
+
+    public ChatPanel(@Nullable SampleReplyProvider sampleReplies, @Nullable RequestCoordinator coordinator) {
         super(new BorderLayout(0, 8));
-        this.replies = Objects.requireNonNull(replies);
+        this.sampleReplies = sampleReplies;
+        this.coordinator = coordinator;
+        if (sampleReplies == null && coordinator == null) {
+            throw new IllegalArgumentException("At least one of sampleReplies or coordinator must be provided");
+        }
         setBorder(new EmptyBorder(12, 14, 10, 14));
         setPreferredSize(new Dimension(440, 760));
         add(createHeader(), BorderLayout.NORTH);
@@ -81,7 +99,8 @@ public final class ChatPanel extends JPanel {
         title.add(new ChatWidgets.Label("Course AI Assistant", 1, true, false), BorderLayout.CENTER);
         title.add(clear, BorderLayout.EAST);
         header.add(title, BorderLayout.NORTH);
-        header.add(new ChatWidgets.Label("Sample mode: local replies only", -1, false, true), BorderLayout.SOUTH);
+        String modeText = coordinator != null ? "Live mode" : "Sample mode: local replies only";
+        header.add(new ChatWidgets.Label(modeText, -1, false, true), BorderLayout.SOUTH);
         header.setBorder(new EmptyBorder(0, 2, 8, 2));
         return header;
     }
@@ -115,17 +134,32 @@ public final class ChatPanel extends JPanel {
     }
 
     private void submitQuestion() {
+        if (isWaitingForResponse) {
+            status.setText("Already waiting for a response…");
+            return;
+        }
+
         String text = question.getText().strip();
         if (text.isBlank()) {
             status.setText("Enter a question first.");
             return;
         }
+
         CodeContext contextToSend = currentContext;
         clearCodeContext();
-        SampleReply reply = replies.reply((SampleScenario) scenario.getSelectedItem());
-        conversation.addExchange(text, reply, contextToSend);
-        clear.setEnabled(true);
         question.setText("");
+
+        if (coordinator != null) {
+            submitAsyncRequest(text, contextToSend);
+        } else if (sampleReplies != null) {
+            submitSampleRequest(text, contextToSend);
+        }
+    }
+
+    private void submitSampleRequest(String text, CodeContext context) {
+        SampleReply reply = sampleReplies.reply((SampleScenario) scenario.getSelectedItem());
+        conversation.addExchange(text, reply, context);
+        clear.setEnabled(true);
         status.setText("Fixed sample reply. No model connected.");
         question.requestFocusInWindow();
         SwingUtilities.invokeLater(() -> {
@@ -133,6 +167,89 @@ public final class ChatPanel extends JPanel {
                 history.getVerticalScrollBar().setValue(history.getVerticalScrollBar().getMaximum());
             }
         });
+    }
+
+    private void submitAsyncRequest(String text, CodeContext context) {
+        ChatRequest request = new ChatRequest(text, context);
+        currentRequestId = request.getRequestId();
+        isWaitingForResponse = true;
+
+        conversation.addUserMessage(text, context);
+        showLoadingIndicator();
+        send.setEnabled(false);
+        status.setText("Waiting for response…");
+
+        coordinator.submitChatRequest(request, new RequestCoordinator.ChatCallback() {
+            @Override
+            public void onRequestStarted(@NotNull String requestId) {
+            }
+
+            @Override
+            public void onRequestCompleted(@NotNull ChatAnswer answer) {
+                SwingUtilities.invokeLater(() -> handleResponseCompleted(answer));
+            }
+
+            @Override
+            public void onRequestFailed(@NotNull ServiceFailure failure) {
+                SwingUtilities.invokeLater(() -> handleResponseFailed(failure));
+            }
+
+            @Override
+            public void onRequestCancelled(@NotNull String requestId) {
+                SwingUtilities.invokeLater(() -> handleResponseCancelled());
+            }
+        });
+    }
+
+    private void handleResponseCompleted(ChatAnswer answer) {
+        hideLoadingIndicator();
+        conversation.addAssistantMessage(answer);
+        isWaitingForResponse = false;
+        currentRequestId = null;
+        clear.setEnabled(true);
+        updateSendState();
+        status.setText("Response received.");
+        question.requestFocusInWindow();
+        SwingUtilities.invokeLater(() -> {
+            if (isDisplayable() && conversation.hasMessages()) {
+                history.getVerticalScrollBar().setValue(history.getVerticalScrollBar().getMaximum());
+            }
+        });
+    }
+
+    private void handleResponseFailed(ServiceFailure failure) {
+        hideLoadingIndicator();
+        conversation.addErrorMessage(failure.getMessage(), failure.isRetryable());
+        isWaitingForResponse = false;
+        currentRequestId = null;
+        clear.setEnabled(true);
+        updateSendState();
+        status.setText("Request failed. " + (failure.isRetryable() ? "You can retry." : ""));
+        question.requestFocusInWindow();
+    }
+
+    private void handleResponseCancelled() {
+        hideLoadingIndicator();
+        isWaitingForResponse = false;
+        currentRequestId = null;
+        clear.setEnabled(true);
+        updateSendState();
+        status.setText("Request cancelled.");
+        status.setText("Enter to send, Shift+Enter for new line");
+        question.requestFocusInWindow();
+    }
+
+    private void showLoadingIndicator() {
+        loadingIndicator.setVisible(true);
+        JPanel loadingPanel = ChatWidgets.transparent(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        loadingPanel.add(loadingIndicator);
+        loadingPanel.setName("loadingIndicator");
+        conversation.addLoadingMessage();
+    }
+
+    private void hideLoadingIndicator() {
+        loadingIndicator.setVisible(false);
+        conversation.removeLoadingMessage();
     }
 
     private void updateSendState() {
@@ -147,6 +264,12 @@ public final class ChatPanel extends JPanel {
         history.getVerticalScrollBar().setValue(0);
         updateSendState();
         clearCodeContext();
+        if (isWaitingForResponse && currentRequestId != null && coordinator != null) {
+            coordinator.cancelRequest(currentRequestId);
+        }
+        isWaitingForResponse = false;
+        currentRequestId = null;
+        hideLoadingIndicator();
     }
 
     /**

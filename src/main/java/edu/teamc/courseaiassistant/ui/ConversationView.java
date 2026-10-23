@@ -1,12 +1,15 @@
 package edu.teamc.courseaiassistant.ui;
 
 import edu.teamc.courseaiassistant.context.CodeContext;
+import edu.teamc.courseaiassistant.model.ChatAnswer;
+import edu.teamc.courseaiassistant.model.SourceReference;
 import edu.teamc.courseaiassistant.sample.SampleReply;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
 
 /** Width-aware message layout; user bubbles and assistant text remain selectable. */
@@ -34,6 +37,52 @@ public final class ConversationView extends JPanel implements Scrollable {
         hasMessages = true;
         add(new UserMessage(question, context));
         add(new AssistantMessage(reply));
+        revalidate();
+        repaint();
+    }
+
+    void addExchange(String question, ChatAnswer answer, CodeContext context) {
+        if (!hasMessages) removeAll();
+        hasMessages = true;
+        add(new UserMessage(question, context));
+        add(new AssistantMessage(answer));
+        revalidate();
+        repaint();
+    }
+
+    void addUserMessage(String question, CodeContext context) {
+        if (!hasMessages) removeAll();
+        hasMessages = true;
+        add(new UserMessage(question, context));
+        revalidate();
+        repaint();
+    }
+
+    void addAssistantMessage(ChatAnswer answer) {
+        add(new AssistantMessage(answer));
+        revalidate();
+        repaint();
+    }
+
+    void addLoadingMessage() {
+        add(new LoadingMessage());
+        revalidate();
+        repaint();
+    }
+
+    void removeLoadingMessage() {
+        for (int i = getComponentCount() - 1; i >= 0; i--) {
+            if (getComponent(i) instanceof LoadingMessage) {
+                remove(i);
+                revalidate();
+                repaint();
+                return;
+            }
+        }
+    }
+
+    void addErrorMessage(String message, boolean retryable) {
+        add(new ErrorMessage(message, retryable));
         revalidate();
         repaint();
     }
@@ -147,55 +196,135 @@ public final class ConversationView extends JPanel implements Scrollable {
 
     private static final class AssistantMessage extends Message {
         private final ChatWidgets.Label label = new ChatWidgets.Label("Course AI", 0, true, false);
-        private final ChatWidgets.Label sample = new ChatWidgets.Label("Fixed sample", -1, false, true);
+        private final ChatWidgets.Label sample;
         private final ChatWidgets.Text answer;
         private final ChatWidgets.Text disclosure;
         private final ChatWidgets.Text sources;
         private final JPanel sourceCard;
+
         AssistantMessage(SampleReply reply) {
-            answer = new ChatWidgets.Text(reply.answer(), false, 0);
-            disclosure = new ChatWidgets.Text(reply.disclosure(), true, -1);
-            add(label); add(sample); add(answer); add(disclosure);
-            if (reply.sources().isEmpty()) {
-                sources = null;
-                sourceCard = null;
+            this(reply.answer(), reply.disclosure(), toSourceReferences(reply.sources()), true);
+        }
+
+        AssistantMessage(ChatAnswer answer) {
+            this(
+                    answer.getAnswer(),
+                    answer.getDisclosure() != null ? answer.getDisclosure() : "",
+                    answer.getSources(),
+                    false
+            );
+        }
+
+        private AssistantMessage(String answerText, String disclosureText, List<SourceReference> sources, boolean isSample) {
+            this.sample = isSample ? new ChatWidgets.Label("Fixed sample", -1, false, true) : null;
+            this.answer = new ChatWidgets.Text(answerText, false, 0);
+            this.disclosure = disclosureText.isEmpty() ? null : new ChatWidgets.Text(disclosureText, true, -1);
+
+            add(label);
+            if (sample != null) add(sample);
+            add(this.answer);
+            if (disclosure != null) add(disclosure);
+
+            if (sources.isEmpty()) {
+                this.sources = null;
+                this.sourceCard = null;
             } else {
-                StringBuilder referenceText = new StringBuilder("Example sources (invented)\n");
-                for (int i = 0; i < reply.sources().size(); i++) {
-                    SampleReply.Source source = reply.sources().get(i);
-                    referenceText.append("[S").append(i + 1).append("] ").append(source.documentName())
-                            .append(" — page ").append(source.page()).append('\n');
+                StringBuilder referenceText = new StringBuilder(isSample ? "Example sources (invented)\n" : "Sources\n");
+                for (int i = 0; i < sources.size(); i++) {
+                    SourceReference source = sources.get(i);
+                    referenceText.append(source.toString()).append('\n');
                 }
-                sources = new ChatWidgets.Text(referenceText.toString().stripTrailing(), false, -1);
-                sourceCard = new ChatWidgets.RoundedPanel(new BorderLayout(), false, true);
-                sourceCard.setBorder(new EmptyBorder(10, 12, 10, 12));
-                sourceCard.add(sources, BorderLayout.CENTER);
-                add(sourceCard);
+                this.sources = new ChatWidgets.Text(referenceText.toString().stripTrailing(), false, -1);
+                this.sourceCard = new ChatWidgets.RoundedPanel(new BorderLayout(), false, true);
+                this.sourceCard.setBorder(new EmptyBorder(10, 12, 10, 12));
+                this.sourceCard.add(this.sources, BorderLayout.CENTER);
+                add(this.sourceCard);
             }
         }
+
+        private static List<SourceReference> toSourceReferences(List<SampleReply.Source> sampleSources) {
+            return sampleSources.stream()
+                    .map(s -> new SourceReference("S" + (sampleSources.indexOf(s) + 1), s.documentName(), s.page(), s.page(), null))
+                    .collect(Collectors.toList());
+        }
+
         @Override int heightAt(int width) {
-            int height = 40 + answer.heightAt(width) + 18;
+            int height = (sample != null ? 40 : 24) + answer.heightAt(width) + 18;
             if (sources != null) height += sources.heightAt(Math.max(1, width - 24)) + 20 + 14;
-            return height + disclosure.heightAt(width);
+            if (disclosure != null) height += disclosure.heightAt(width);
+            return height;
         }
         @Override public void doLayout() {
             int width = getWidth();
             label.setBounds(0, 0, Math.max(1, width - 100), 24);
-            sample.setBounds(Math.max(0, width - 95), 0, Math.min(95, width), 24);
+            if (sample != null) sample.setBounds(Math.max(0, width - 95), 0, Math.min(95, width), 24);
             int answerHeight = answer.heightAt(width);
-            answer.setBounds(0, 40, width, answerHeight);
-            int y = 40 + answerHeight + 18;
+            answer.setBounds(0, sample != null ? 40 : 24, width, answerHeight);
+            int y = (sample != null ? 40 : 24) + answerHeight + 18;
             if (sources != null) {
                 int sourceHeight = sources.heightAt(Math.max(1, width - 24)) + 20;
                 sourceCard.setBounds(0, y, width, sourceHeight);
                 sourceCard.doLayout();
                 y += sourceHeight + 14;
             }
-            disclosure.setBounds(0, y, width, disclosure.heightAt(width));
+            if (disclosure != null) disclosure.setBounds(0, y, width, disclosure.heightAt(width));
         }
         @Override String plainText() {
-            return "Course AI (fixed sample)\n" + answer.plainText() + "\n\n"
-                    + (sources == null ? "" : sources.plainText() + "\n\n") + disclosure.plainText();
+            String result = sample != null ? "Course AI (fixed sample)\n" : "Course AI\n";
+            result += answer.plainText();
+            if (sources != null) result += "\n\n" + sources.plainText();
+            if (disclosure != null) result += "\n\n" + disclosure.plainText();
+            return result;
+        }
+    }
+
+    private static final class LoadingMessage extends Message {
+        private final ChatWidgets.Label label = new ChatWidgets.Label("Thinking…", -1, false, true);
+
+        LoadingMessage() {
+            add(label);
+            getAccessibleContext().setAccessibleName("Loading");
+        }
+
+        @Override int heightAt(int width) {
+            return label.getPreferredSize().height + 20;
+        }
+
+        @Override public void doLayout() {
+            label.setBounds(0, 10, getWidth(), label.getPreferredSize().height);
+        }
+
+        @Override String plainText() {
+            return "Loading…";
+        }
+    }
+
+    private static final class ErrorMessage extends Message {
+        private final ChatWidgets.Label label;
+        private final JPanel bubble = new ChatWidgets.RoundedPanel(new BorderLayout(), false, true);
+
+        ErrorMessage(String message, boolean retryable) {
+            String text = "⚠ " + message;
+            if (retryable) text += " (You can retry)";
+            label = new ChatWidgets.Label(text, -1, false, false);
+            bubble.setBorder(new EmptyBorder(10, 12, 10, 12));
+            bubble.add(label, BorderLayout.CENTER);
+            add(bubble);
+            getAccessibleContext().setAccessibleName("Error message");
+        }
+
+        @Override int heightAt(int width) {
+            label.setSize(width - 24, Short.MAX_VALUE);
+            return label.getPreferredSize().height + 20;
+        }
+
+        @Override public void doLayout() {
+            bubble.setBounds(0, 0, getWidth(), getHeight());
+            label.setBounds(12, 10, getWidth() - 24, label.getPreferredSize().height);
+        }
+
+        @Override String plainText() {
+            return label.getText();
         }
     }
 }
