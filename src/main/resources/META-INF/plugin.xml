@@ -14,8 +14,9 @@
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-description -->
     <description><![CDATA[
         Teaching assistant plugin for CST3492 Java Enterprise Application Development.<br>
-        This development baseline provides a sample tool window. Course-grounded Q&amp;A,
-        code-context questions, and reviewed AI code changes are planned for later stages.
+        Provides an embedded chat interface with clearly labeled local sample replies
+        and example citations. Live course-grounded Q&amp;A, code-context questions,
+        and reviewed AI code changes are planned for later stages.
     ]]></description>
 
     <!-- Product and plugin compatibility requirements.
@@ -23,11 +24,20 @@
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.java</depends>
-    <resource-bundle>messages.MyMessageBundle</resource-bundle>
+    <resource-bundle>messages.CourseAiBundle</resource-bundle>
     <!-- Extensions defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow id="MyToolWindow" factoryClass="edu.teamc.courseaiassistant.MyToolWindowFactory"
-                    icon="AllIcons.Toolwindows.ToolWindowPalette"/>
+        <toolWindow id="CourseAiAssistant" factoryClass="edu.teamc.courseaiassistant.ui.CourseAiToolWindowFactory"
+                    anchor="right" icon="AllIcons.Toolwindows.ToolWindowPalette"/>
     </extensions>
+
+    <actions>
+        <action id="CourseAiAssistant.AskAssistant"
+                class="edu.teamc.courseaiassistant.action.AskAssistantAction"
+                text="Ask Course AI Assistant"
+                description="Send selected code to the AI assistant">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
+    </actions>
 </idea-plugin>

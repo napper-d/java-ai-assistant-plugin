@@ -4,9 +4,12 @@ IntelliJ IDEA plugin for CST3492 Assignment A, Group C (F0 + F2).
 
 ## Current status
 
-Stage 1 establishes the build baseline and draft module contracts. The generated
-sample tool window is retained: click **Shuffle** to display a random number.
-RAG, LLM calls, code-context actions and reviewed changes are not implemented yet.
+Stage 1 was reviewed and accepted. Stage 2 replaces the random-number template
+with a Java chat Tool Window. It supports local sample conversations, example
+citations, general-knowledge disclosure, multiline questions, Ctrl+Enter and clearing.
+The visual revision uses right-aligned question bubbles, open assistant responses,
+source cards and a rounded bottom composer, with light/dark theme support.
+RAG, live LLM calls, editor context and reviewed changes are not implemented yet.
 
 ## Development baseline
 
@@ -54,17 +57,47 @@ behavior or compatibility with every IDEA version.
 Once dependencies are cached, add `--offline` if needed. If a dependency is absent,
 retry online rather than changing versions.
 
-## Run the sample
+After removing or moving source classes, run a clean release build to avoid stale
+instrumentation outputs: `.\gradlew.bat clean buildPlugin verifyPluginProjectConfiguration verifyPluginStructure --rerun-tasks`.
+
+## Run the chat window
 
 1. Run **Run IDE with Plugin**, or execute `.\gradlew.bat runIde`.
 2. Wait for the separate development IDEA to open.
 3. Open a small Java project in that IDEA.
-4. Select **View > Tool Windows > My Tool Window** (ID: `MyToolWindow`).
-5. Check that **The random number is: ?** and **Shuffle** appear.
-6. Click **Shuffle** and check that an integer from 0 to 999 appears.
+4. Select **View > Tool Windows > Course AI Assistant** (ID: `CourseAiAssistant`).
+5. Check the visible **Sample mode** notice. Type a question and click the upward-arrow **Send** button.
+6. Switch **Example** between **With course citation** and **General knowledge**.
+   The first includes an invented source; the second explicitly discloses general
+   knowledge. Neither generates an answer from your question.
 7. Close the development IDEA to finish `runIde`.
 
-Source-code comments in a sample Java file are not this plugin's sample UI.
+Use Ctrl+Enter to send and Enter for newlines. Blank questions are rejected.
+The top trash icon (**Clear chat**) removes the conversation and draft. History is in memory only,
+per window: it is not persisted or supplied to a model. No code or course files
+are read. Sources are plain text for this UI stage, not document-opening links.
+
+### Development IDEA editor colors
+
+The development IDEA has separate settings under `build/idea-sandbox/`. If its code
+editor is white while your everyday IDEA is dark, open **Settings > Editor > Color
+Scheme** in the development IDEA and choose a dark scheme such as Darcula. The IDE
+UI theme is separately configured in **Appearance & Behavior > Appearance**.
+This plugin only styles its own window; it does not change the global editor scheme.
+
+## Standalone interaction checks
+
+With a local JDK 21 selected in the current shell's `JAVA_HOME`:
+
+```powershell
+.\tools\check-chat-ui.ps1
+```
+
+The script compiles the real Swing view and sample provider using Java 21, then
+checks interactions on the event dispatch thread. It needs no Gradle download,
+JUnit dependency or IDE process. It also writes light/dark/narrow standalone
+previews to `build/reports/stage2/`. These are not screenshots of IntelliJ's exact
+look and feel; validate actual IDE integration manually before accepting Stage 2.
 
 Sandbox log:
 
@@ -85,21 +118,23 @@ instead of packaging a duplicate.
 ```text
 .run/                   Shared IDE run configuration
 gradle/                 Wrapper and JDK 21 daemon criteria
-src/main/kotlin/        Generated sample and message-bundle helper
-src/main/java/          Planned Java code; create with the first Java class
+src/main/java/          Chat view, IDE factory and isolated sample provider
 src/main/resources/     Plugin descriptor, icon and message resources
 docs/                   Module boundaries, draft contracts and review notes
+tools/                  Standalone Swing interaction checks
 build/                  Generated output and sandbox (ignored)
 ```
 
-New application code is planned in Java 21; retain Kotlin build scripts. Preserve
-the Kotlin sample during Stage 1; replace it in the UI stage.
+Application code uses Java 21. The old Kotlin sample and helper are removed;
+Kotlin build scripts and the existing build plugin remain unchanged.
 
 ## Collaboration and stage reviews
 
 - [Architecture and ownership](docs/architecture.md)
 - [Draft service contracts](docs/interfaces.md)
 - [Stage 1 review and verification](docs/stage-1-review.md)
+- [Stage 2 review and acceptance](docs/stage-2-review.md)
+- [Stage 2 visual revision and editor color diagnosis](docs/stage-2-visual-review.md)
 
 Each member owns their module and documentation. Coordinate interface changes
 with affected members. Complete one stage, report checks and limitations, then
