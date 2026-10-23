@@ -1,117 +1,113 @@
-# IntelliJ Platform Plugin Template
+# Course AI Assistant
 
-[![Twitter Follow](https://img.shields.io/badge/follow-%40JBPlatform-1DA1F2?logo=twitter)](https://twitter.com/JBPlatform)
-[![Developers Forum](https://img.shields.io/badge/JetBrains%20Platform-Join-blue)][jb:forum]
+IntelliJ IDEA plugin for CST3492 Assignment A, Group C (F0 + F2).
 
-## Plugin template structure
+## Current status
 
-A generated project contains the following content structure:
+Stage 1 establishes the build baseline and draft module contracts. The generated
+sample tool window is retained: click **Shuffle** to display a random number.
+RAG, LLM calls, code-context actions and reviewed changes are not implemented yet.
 
+## Development baseline
+
+| Component | Version |
+| --- | --- |
+| JDK / Java language target | 21 |
+| Gradle Wrapper | 9.0.0 |
+| IntelliJ Platform Gradle Plugin | 2.10.2 |
+| Target IntelliJ IDEA | 2025.2.4 (IU) |
+| Kotlin Gradle Plugin / JVM target | 2.1.20 / 21 |
+| Plugin ID | `edu.teamc.course-ai-assistant` |
+
+Use the checked-in Wrapper. Keep target versions unchanged until a compatibility
+review; the IDEA used to edit the plugin may be newer than the target IDEA.
+
+## Open and configure
+
+1. Install JDK 21, for example Eclipse Temurin.
+2. Open **this directory**, containing `settings.gradle.kts`, as a Gradle project.
+3. Set **Project SDK** to JDK 21 and **Language level** to 21 without preview.
+4. Set **Gradle JVM** to JDK 21 or the daemon criteria supplied by this project.
+5. Reload Gradle. Initial dependency downloads need network access.
+
+Java/Kotlin toolchains and daemon criteria require 21. No machine-specific JDK path
+is committed. Install a local JDK 21; automatic JDK download repositories are not configured.
+
+## Build and verify
+
+From a terminal at this directory:
+
+```powershell
+.\gradlew.bat --version
+.\gradlew.bat buildPlugin verifyPluginProjectConfiguration verifyPluginStructure
 ```
-.
-├── .run/                   Predefined Run/Debug Configurations
-├── build/                  Output build directory
-├── gradle
-│   ├── wrapper/            Gradle Wrapper
-├── src                     Plugin sources
-│   ├── main
-│   │   ├── kotlin/         Kotlin production sources
-│   │   └── resources/      Resources - plugin.xml, icons, messages
-├── .gitignore              Git ignoring rules
-├── build.gradle.kts        Gradle build configuration
-├── gradle.properties       Gradle configuration properties
-├── gradlew                 *nix Gradle Wrapper script
-├── gradlew.bat             Windows Gradle Wrapper script
-├── README.md               README
-└── settings.gradle.kts     Gradle project settings
+
+On macOS/Linux use `./gradlew`. `--version` may report a different **Launcher JVM**
+when the shell's `JAVA_HOME` differs; the daemon and compilation must use 21.
+The project's daemon criteria select that daemon.
+
+The installable ZIP is generated under `build/distributions/`. It is the plugin
+baseline, not the assignment's complete source/report/slides package. The two
+verification tasks check project configuration and plugin structure, not UI
+behavior or compatibility with every IDEA version.
+
+Once dependencies are cached, add `--offline` if needed. If a dependency is absent,
+retry online rather than changing versions.
+
+## Run the sample
+
+1. Run **Run IDE with Plugin**, or execute `.\gradlew.bat runIde`.
+2. Wait for the separate development IDEA to open.
+3. Open a small Java project in that IDEA.
+4. Select **View > Tool Windows > My Tool Window** (ID: `MyToolWindow`).
+5. Check that **The random number is: ?** and **Shuffle** appear.
+6. Click **Shuffle** and check that an integer from 0 to 999 appears.
+7. Close the development IDEA to finish `runIde`.
+
+Source-code comments in a sample Java file are not this plugin's sample UI.
+
+Sandbox log:
+
+```text
+build/idea-sandbox/IU-2025.2.4/log/idea.log
 ```
 
-In addition to the configuration files, the most crucial part is the `src` directory, which contains our implementation
-and the manifest for our plugin – [plugin.xml][file:plugin.xml].
+The shared run configuration points to this path. Update it if the target platform
+is deliberately changed later.
 
-> [!NOTE]
-> To use Java in your plugin, create the `/src/main/java` directory.
+Searchable-settings index generation is disabled because this baseline provides
+no custom settings pages. Re-enable `buildSearchableOptions` when a plugin
+`Configurable` is added. The platform's bundled Kotlin standard library is used
+instead of packaging a duplicate.
 
-## Plugin configuration file
+## Source layout and language policy
 
-The plugin configuration file is a [plugin.xml][file:plugin.xml] file located in the `src/main/resources/META-INF`
-directory.
-It provides general information about the plugin, its dependencies, extensions, and listeners.
+```text
+.run/                   Shared IDE run configuration
+gradle/                 Wrapper and JDK 21 daemon criteria
+src/main/kotlin/        Generated sample and message-bundle helper
+src/main/java/          Planned Java code; create with the first Java class
+src/main/resources/     Plugin descriptor, icon and message resources
+docs/                   Module boundaries, draft contracts and review notes
+build/                  Generated output and sandbox (ignored)
+```
 
-You can read more about this file in the [Plugin Configuration File][docs:plugin.xml] section of our documentation.
+New application code is planned in Java 21; retain Kotlin build scripts. Preserve
+the Kotlin sample during Stage 1; replace it in the UI stage.
 
-If you're still not quite sure what this is all about, read our
-introduction: [What is the IntelliJ Platform?][docs:intro]
+## Collaboration and stage reviews
 
-$H$H Predefined Run/Debug configurations
+- [Architecture and ownership](docs/architecture.md)
+- [Draft service contracts](docs/interfaces.md)
+- [Stage 1 review and verification](docs/stage-1-review.md)
 
-Within the default project structure, there is a `.run` directory provided containing predefined *Run/Debug
-configurations* that expose corresponding Gradle tasks:
+Each member owns their module and documentation. Coordinate interface changes
+with affected members. Complete one stage, report checks and limitations, then
+wait for the user's review before proceeding.
 
-| Configuration name | Description                                                                                                                                                                         |
-|--------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Run Plugin         | Runs [`:runIde`][gh:intellij-platform-gradle-plugin-runIde] IntelliJ Platform Gradle Plugin task. Use the *Debug* icon for plugin debugging.                                        |
-| Run Tests          | Runs [`:test`][gradle:lifecycle-tasks] Gradle task.                                                                                                                                 |
-| Run Verifications  | Runs [`:verifyPlugin`][gh:intellij-platform-gradle-plugin-verifyPlugin] IntelliJ Platform Gradle Plugin task to check the plugin compatibility against the specified IntelliJ IDEs. |
+## References
 
-> [!NOTE]
-> You can find the logs from the running task in the `idea.log` tab.
-
-## Publishing the plugin
-
-> [!TIP]
-> Make sure to follow all guidelines listed in [Publishing a Plugin][docs:publishing] to follow all recommended and
-> required steps.
-
-Releasing a plugin to [JetBrains Marketplace](https://plugins.jetbrains.com) is a straightforward operation that uses
-the `publishPlugin` Gradle task provided by
-the [intellij-platform-gradle-plugin][gh:intellij-platform-gradle-plugin-docs].
-
-You can also upload the plugin to the [JetBrains Plugin Repository](https://plugins.jetbrains.com/plugin/upload)
-manually via UI.
-
-## Useful links
-
-- [IntelliJ Platform SDK Plugin SDK][docs]
-- [IntelliJ Platform Gradle Plugin Documentation][gh:intellij-platform-gradle-plugin-docs]
-- [IntelliJ Platform Explorer][jb:ipe]
-- [JetBrains Marketplace Quality Guidelines][jb:quality-guidelines]
-- [IntelliJ Platform UI Guidelines][jb:ui-guidelines]
-- [JetBrains Marketplace Paid Plugins][jb:paid-plugins]
-- [IntelliJ SDK Code Samples][gh:code-samples]
-
-[docs]: https://plugins.jetbrains.com/docs/intellij
-
-[docs:intro]: https://plugins.jetbrains.com/docs/intellij/intellij-platform.html?from=IJPluginTemplate
-
-[docs:plugin.xml]: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html?from=IJPluginTemplate
-
-[docs:publishing]: https://plugins.jetbrains.com/docs/intellij/publishing-plugin.html?from=IJPluginTemplate
-
-[file:plugin.xml]: ./src/main/resources/META-INF/plugin.xml
-
-[gh:code-samples]: https://github.com/JetBrains/intellij-sdk-code-samples
-
-[gh:intellij-platform-gradle-plugin]: https://github.com/JetBrains/intellij-platform-gradle-plugin
-
-[gh:intellij-platform-gradle-plugin-docs]: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html
-
-[gh:intellij-platform-gradle-plugin-runIde]: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-tasks.html#runIde
-
-[gh:intellij-platform-gradle-plugin-verifyPlugin]: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-tasks.html#verifyPlugin
-
-[gradle:lifecycle-tasks]: https://docs.gradle.org/current/userguide/java_plugin.html#lifecycle_tasks
-
-[jb:github]: https://github.com/JetBrains/.github/blob/main/profile/README.md
-
-[jb:forum]: https://platform.jetbrains.com/
-
-[jb:quality-guidelines]: https://plugins.jetbrains.com/docs/marketplace/quality-guidelines.html
-
-[jb:paid-plugins]: https://plugins.jetbrains.com/docs/marketplace/paid-plugins-marketplace.html
-
-[jb:quality-guidelines]: https://plugins.jetbrains.com/docs/marketplace/quality-guidelines.html
-
-[jb:ipe]: https://jb.gg/ipe
-
-[jb:ui-guidelines]: https://jetbrains.github.io/ui
+- [IntelliJ Platform Plugin SDK](https://plugins.jetbrains.com/docs/intellij/developing-plugins.html)
+- [Gradle daemon JVM criteria](https://docs.gradle.org/current/userguide/gradle_daemon.html#sec:daemon_jvm_criteria)
+- [Gradle toolchains](https://docs.gradle.org/current/userguide/toolchains.html)
+- [IntelliJ Platform Gradle tasks](https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-tasks.html)

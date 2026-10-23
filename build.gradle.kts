@@ -20,14 +20,13 @@ dependencies {
         intellijIdea("2025.2.4")
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
 
-        // Add plugin dependencies for compilation here:
-
-
         bundledPlugin("com.intellij.java")
     }
 }
 
 intellijPlatform {
+    // No plugin settings pages yet; re-enable when a Configurable is introduced.
+    buildSearchableOptions = false
     pluginConfiguration {
         ideaVersion {
             sinceBuild = "252.25557"
@@ -36,6 +35,12 @@ intellijPlatform {
         changeNotes = """
             Initial version
         """.trimIndent()
+    }
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
     }
 }
 
@@ -48,6 +53,7 @@ tasks {
 }
 
 kotlin {
+    jvmToolchain(21)
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
     }
