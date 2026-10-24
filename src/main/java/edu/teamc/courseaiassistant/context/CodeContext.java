@@ -7,7 +7,7 @@ import java.util.Objects;
 
 /**
  * Immutable snapshot of selected code and its source location.
- * Captured at the moment of question submission to prevent stale context.
+ * Captured when the editor action is invoked, before the question is submitted.
  */
 public final class CodeContext {
     private final @NotNull String projectRelativePath;

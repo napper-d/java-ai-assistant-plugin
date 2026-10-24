@@ -1,85 +1,106 @@
-# Service Contracts — Draft v0.1
+# Service Contracts — Stage 4
 
-Status: proposed for team review, not implemented Java APIs. Final signatures and
-libraries need agreement with Members 2–4. Sample adapters must be visibly marked.
-
-Stage 2 implements local UI examples under `sample/`, not these final service APIs.
-Its provider intentionally accepts only an example scenario and does not send a
-question to a model. Shared chat/context/modification contracts remain a team draft.
+The Java APIs below exist in `model/`, `context/` and `service/`. Chat uses
+`CompletableFuture`; the default Tool Window adapter is MockChatService, visibly
+marked as sample data. No real retrieval, LLM or modification service is registered.
+The F2 contracts are a concrete handoff proposal for Members 3–4, pending their
+agreement and Stage 5 integration; their existence does not imply F2 is implemented.
 
 ## Shared values
 
-| Value | Proposed fields / rules |
+| Java value | Fields / semantics |
 | --- | --- |
-| `CodeContext` | Project-relative file path, language ID, selected text, start/end offsets, captured document modification stamp. Optional surrounding text must be explicit and bounded. |
-| `SourceReference` | Stable reference ID, document ID/name, page start/end or meaningful source scope. At least page or scope must be present. |
-| `KnowledgeChunk` | Chunk ID, source reference, text, retrieval score and scoring metadata if available. |
-| `ChatRequest` | Request ID, question, optional code context. History policy to be agreed before multi-turn support. |
-| `ChatAnswer` | Request ID, answer text, cited sources, provenance (`COURSE_GROUNDED` / `GENERAL_KNOWLEDGE`), optional disclosure. |
-| `ModificationRequest` | Request ID, instruction, code context and stable original-file snapshot needed for review/application. |
-| `CodeChange` | File path, original full text or explicitly defined edit range, proposed text, explanatory summary. Representation to be agreed. |
-| `ChangeProposal` | Proposal ID, request ID, code changes. Initial supported scope to be agreed; multi-file support is not assumed. |
-| `ServiceFailure` | Request ID, category, safe user-facing message, optional retryability. Diagnostics belong in logs. |
+| `CodeContext` | Project-relative path (absolute for an external file), language ID, selected text, inclusive one-based start/end lines, document modification stamp, optional bounded surrounding text. The collector supplies no surrounding text. |
+| `SourceReference` | Reference ID, document name, optional page start/end or scope. At least page or scope is required. Equal start/end pages display as one page. |
+| `KnowledgeChunk` | Chunk ID, source, text and score in [0, 1]. Member 2 must agree on score normalization and relevance threshold. |
+| `ChatRequest` | Generated request ID, question, nullable CodeContext. No conversation history is currently submitted. |
+| `ChatAnswer` | Same request ID, answer, immutable sources, provenance (`COURSE_GROUNDED` / `GENERAL_KNOWLEDGE`), optional disclosure. |
+| `ServiceFailure` | Request ID, category, safe user-facing message and retryability; extends Exception. |
+| `ModificationRequest` | Request ID, nonblank instruction, CodeContext and original full-file text. Capturing the full file belongs only to an explicitly invoked future modification flow. |
+| `CodeChange` | Project-relative path, original full-file text, proposed full-file text and summary. This is a proposal, not permission to access the path. |
+| `ChangeProposal` | Proposal ID, request ID and one CodeChange. Initial scope is single-file replacement. |
+| `ModificationResult` | Request ID, proposal ID, outcome (`APPLIED` / `CANCELLED`) and message. Failure completes exceptionally with ServiceFailure. |
 
-Offsets follow IntelliJ documents: zero-based UTF-16, inclusive start and exclusive
-end. Services must not infer permission to read/change arbitrary paths from model output.
+The approved context design uses **line numbers, not offsets**. A selected snippet
+may begin or end mid-line. The modification flow must preserve the exact selected
+text and validate the original full-file snapshot instead of inferring edit offsets
+from line numbers. None of these value types reads or writes files.
 
 ## Ports and ownership
 
-| Port | Owner | Input → output |
+| Java port | Owner | Signature |
 | --- | --- | --- |
-| `KnowledgeSearch` | Member 2 | Query + options → matched chunks or successful empty result |
-| `ChatService` | Member 3 | Chat request → answer or service failure |
-| `CodeGenerationService` | Member 3 | Modification request → proposed changes or service failure |
-| `ModificationService` | Member 4 | Coordinate generation, review and explicit apply/cancel outcome |
+| `KnowledgeSearch` | Member 2 | `search(String query, int maxResults) -> CompletableFuture<List<KnowledgeChunk>>` |
+| `ChatService` | Member 3 | `ask(ChatRequest) -> CompletableFuture<ChatAnswer>` |
+| `CodeGenerationService` | Member 3 | `generate(ModificationRequest) -> CompletableFuture<ChangeProposal>` |
+| `ModificationService` | Member 4 | `modify(ModificationRequest) -> CompletableFuture<ModificationResult>` |
 
-Context collection and request coordination belong to Member 1. `ChatService`
-consumes `KnowledgeSearch`; `ModificationService` consumes `CodeGenerationService`.
-The Tool Window normally does not call search or generation directly.
+Context collection and chat request coordination belong to Member 1. The future
+ChatService implementation consumes KnowledgeSearch; ModificationService coordinates
+CodeGenerationService, built-in Diff review and explicit apply/cancel. The Tool Window
+does not query an index or construct model prompts. The current RequestCoordinator
+coordinates chat only; the modification UI and lifecycle are Stage 5 work.
 
-## Required semantics
+## Chat execution and lifecycle
 
-### Questions and citations
+1. Reject blank questions in the UI and capture immutable code context when the
+   editor action is invoked. The request retains that snapshot even after editor changes.
+2. RequestCoordinator calls `ask` off the EDT, including service startup. Return a
+   non-null future, completed with a non-null answer and the same request ID, or
+   completed exceptionally with ServiceFailure. A synchronous startup exception is
+   converted into a safe failure and the UI becomes usable again.
+3. The coordinator owns a deadline (30 seconds by default, configurable through the
+   Duration constructor). A real deadline produces retryable TIMEOUT and cancels
+   invocation/service futures. Mock TIMEOUT is a separate deterministic test scenario.
+4. CompletionException / ExecutionException / plain RuntimeException wrappers are
+   unwrapped, preserving ServiceFailure category and retryability. Unknown errors
+   use a safe generic message rather than exposing raw exception text.
+5. All lifecycle callbacks run on the EDT. Each request delivers at most one terminal
+   callback, provided the owner is still alive. Request IDs are checked before display.
+6. Clear chat invalidates the UI request before cancellation. A cancellation is
+   `onRequestCancelled`, never an error message. A queued success can still be
+   cancelled before delivery. Old callbacks must not finish a new request.
+7. The content disposer releases the panel/coordinator, clears its registry entry,
+   cancels outstanding work and stops owned executors. Merely hiding the Tool Window
+   preserves its session. Delivery rechecks both project and coordinator disposal.
+8. Adapters must propagate cancellation to their owned HTTP/retrieval work where
+   possible. `CompletableFuture.cancel(true)` alone does not interrupt arbitrary
+   work or guarantee cancellation at a remote provider. The Mock schedules a delayed
+   completion without sleeping worker threads and skips generation if cancelled.
 
-- Reject blank questions before invoking a service; capture immutable context.
-- Course-grounded answers include sources actually used; answer markers and
-  returned reference IDs must agree.
-- General-knowledge answers have no claimed course citations and explicitly
-  disclose that no relevant course material was referenced.
-- Distinguish successful empty retrieval from failed retrieval.
-- Do not silently display missing/inconsistent metadata as verified course citations.
-  Exact validation and fallback policy needs agreement with Members 2–3.
+## Answer and citation semantics
 
-### Changes and approval
+- Course-grounded answers include sources actually used; markers must agree with
+  returned reference IDs. Preserve document identity and pages/scope end to end.
+- General-knowledge answers have no course citations and explicitly disclose that
+  no relevant course material was referenced. The UI renders the supplied disclosure;
+  the real adapter must enforce provenance/citation consistency before returning.
+- Distinguish successful empty retrieval from retrieval failure. Never turn a failed
+  search into an apparent no-match result.
+- Sample mode is explicit UI configuration, independent of asynchronous execution.
+  Mock answers retain Fixed sample / Example sources (invented) labels. The example
+  selector changes the next mock request and is disabled during the current request.
 
-- Generation returns proposals only; it never writes files.
-- Member 4 validates scope and uses the built-in Diff Viewer before any write.
-- Applying requires explicit approval. Cancelling/closing the preview leaves files unchanged.
-- If target content changed since capture, regenerate or obtain renewed review
-  rather than overwriting newer content.
-- Apply/cancel/failure outcomes return to the UI.
+## Modification and approval semantics
 
-### Execution and lifecycle
+- Generation returns proposals only. It must not write files.
+- Member 4 must validate request/proposal identity, target identity and the exact
+  original snapshot. Paths from model output never authorize arbitrary file access.
+- Display the proposal in IntelliJ's built-in Diff Viewer; write only after explicit
+  approval. Cancelling or closing review leaves the source file unchanged.
+- If the file changed after capture, reject/regenerate and obtain renewed review.
+  APPLIED means an approved write actually succeeded, not merely that a proposal exists.
+- Return apply/cancel/failure to the future UI. Undo support and transport cancellation
+  details must be agreed during integration.
 
-- Run slow work in the background. Choose one asynchronous adapter in Stage 4;
-  this draft does not force a particular future/coroutine library.
-- Correlate responses by request ID; ignore callbacks for disposed projects or stale requests.
-- Do not log credentials or full user code by default.
+## Integration handoff
 
-## Sample acceptance data
-
-Invented UI-development data, not actual retrieved course content:
-
-- Course answer: marker `[S1]`, source `S1`, document `sample-course.pdf`, page 3,
-  provenance `COURSE_GROUNDED`.
-- No-match: no course sources, provenance `GENERAL_KNOWLEDGE`, disclosure
-  `Response is based on general knowledge; no specific course material is referenced.`
-- Failure: category `TIMEOUT`, a safe message, retry allowed; not a no-match answer.
-- Change: a proposed null-check fix; declining it must preserve original content.
-
-## Items requiring teammate agreement
-
-- Member 2: formats, page/scope conventions, persistence, scores and no-match threshold.
-- Member 3: provider/configuration, timeouts, prompts, citation validation and results.
-- Member 4: initial change scope, full-text vs ranged edits, validation and review callbacks.
-- All members: stable method signatures and asynchronous adapter before integration.
+- Member 2: implement KnowledgeSearch; agree on document identity, page/scope rules,
+  normalized scores, no-match threshold and index persistence.
+- Member 3: implement ChatService / CodeGenerationService; agree on configuration,
+  timeouts, safe failures, citation validation and propagation of cancellation.
+- Member 4: confirm the initial single-file/full-text proposal format, snapshot
+  validation, Diff review, explicit approval and result callbacks.
+- Member 1: replace the mock in CourseAiToolWindowFactory; construct a live ChatPanel
+  without the sample selector callback. Bind every future lifecycle to content/project
+  disposal and keep real integration marked pending until its acceptance passes.

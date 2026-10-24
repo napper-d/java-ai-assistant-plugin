@@ -1,11 +1,12 @@
-# Architecture and Ownership — Stage 1 Draft
+# Architecture and Ownership — Stage 4
 
 ## Scope and implementation status
 
 Group C must implement F0 (course RAG Q&A, citations, embedded UI and selected-code
 questions) and F2 (instruction-driven changes reviewed in the built-in Diff Viewer
-before application). Stage 2 has a Java chat Tool Window with local sample replies.
-The following design assigns future services; it does not claim live RAG/LLM integration.
+before application). Stages 2–4 implement the Java chat Tool Window, selected-code
+snapshots and asynchronous request coordination. The default adapter is still a
+visibly marked MockChatService. RAG/LLM and modification implementations are future work.
 
 ## Proposed dependency flow
 
@@ -58,10 +59,19 @@ modules. The root-package Kotlin sample was replaced by the Java UI in Stage 2.
    to answer display. Do not reconstruct page numbers from model guesses.
 4. **Explicit provenance.** Disclose general knowledge on no-match answers.
    Retrieval failure remains distinct from a successful empty result.
-5. **Responsive IDE.** Run network/indexing work off the UI thread, update UI on
-   that thread, and respect project disposal. Implement in the request-handling stage.
+5. **Responsive IDE.** RequestCoordinator invokes ChatService on owned background
+   workers and delivers terminal callbacks once on the EDT, with a 30-second
+   deadline. It checks disposal at delivery and retains completed requests until
+   delivery so clearing can invalidate queued replies. ChatPanel also checks the
+   active request ID. Disposing the content stops workers and deadlines; hiding it
+   does not dispose it. Transport adapters must implement cancellation themselves.
 6. **Review before write.** Member 4 owns original snapshots, Diff and explicit
    approval/cancel. Undo and stale-file checks are recommended reliability measures.
+7. **Line-based context.** The approved CodeContext design uses inclusive one-based
+   start/end lines, selected text and a document modification stamp, not offsets.
+   F2 handoff contracts use an explicit original full-file snapshot and a single-file
+   replacement proposal. Ordinary chat does not collect full files. These contracts
+   are available for Members 3–4 to review; implementations are not registered.
 
 ## Integration order
 

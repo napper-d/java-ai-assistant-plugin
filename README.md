@@ -4,12 +4,13 @@ IntelliJ IDEA plugin for CST3492 Assignment A, Group C (F0 + F2).
 
 ## Current status
 
-Stage 1 was reviewed and accepted. Stage 2 replaces the random-number template
-with a Java chat Tool Window. It supports local sample conversations, example
-citations, general-knowledge disclosure, multiline questions, Ctrl+Enter and clearing.
-The visual revision uses right-aligned question bubbles, open assistant responses,
-source cards and a rounded bottom composer, with light/dark theme support.
-RAG, live LLM calls, editor context and reviewed changes are not implemented yet.
+Stages 1–3 were accepted. Stage 4 has service contracts, background invocation,
+a 30-second request deadline, cancellation and failure recovery. The Tool Window
+still runs in **Sample mode** with simulated replies and invented citations.
+Editor selections are captured as immutable code snapshots and passed to chat requests.
+The UI supports Enter to send, Shift+Enter for newlines, clearing during a request,
+and light/dark themes. Stage 4 review fixes are ready for IDE acceptance.
+Real RAG, LLM calls, Diff review and source writes are not implemented.
 
 ## Development baseline
 
@@ -72,10 +73,22 @@ instrumentation outputs: `.\gradlew.bat clean buildPlugin verifyPluginProjectCon
    knowledge. Neither generates an answer from your question.
 7. Close the development IDEA to finish `runIde`.
 
-Use Ctrl+Enter to send and Enter for newlines. Blank questions are rejected.
+Use Enter to send and Shift+Enter for newlines. Blank questions are rejected.
 The top trash icon (**Clear chat**) removes the conversation and draft. History is in memory only,
 per window: it is not persisted or supplied to a model. No code or course files
-are read. Sources are plain text for this UI stage, not document-opening links.
+are read automatically. The editor action reads only the selected text and its
+metadata; no surrounding code or whole-project scan is performed. Sources are
+plain text, not document-opening links.
+
+Select code in an editor and choose **Ask Course AI Assistant** from its context
+menu. Check the attached path, language and inclusive line range before sending.
+The snapshot stays attached even if another editor is opened, until sent, removed
+or cleared. This is a snapshot from the action invocation, not a live selection.
+
+While waiting, Send and the example selector are disabled; typing a new draft is
+allowed. Clear chat cancels the request and invalidates queued replies before
+starting a new conversation. Hiding the Tool Window preserves its session;
+disposing its content or closing the project releases the coordinator.
 
 ### Development IDEA editor colors
 
@@ -93,11 +106,19 @@ With a local JDK 21 selected in the current shell's `JAVA_HOME`:
 .\tools\check-chat-ui.ps1
 ```
 
-The script compiles the real Swing view and sample provider using Java 21, then
-checks interactions on the event dispatch thread. It needs no Gradle download,
-JUnit dependency or IDE process. It also writes light/dark/narrow standalone
-previews to `build/reports/stage2/`. These are not screenshots of IntelliJ's exact
-look and feel; validate actual IDE integration manually before accepting Stage 2.
+The script compiles all production Java sources and both check entry points with
+Java 21. It uses the IDEA 2025.2.4 SDK extracted by an earlier Gradle sync and
+starts no IDE, model service or network download. If automatic SDK discovery fails:
+
+```powershell
+.\tools\check-chat-ui.ps1 -IdeHome 'C:\path\to\ideaIU-2025.2.4-win'
+```
+
+The original interaction/theme/layout checks also write light/dark/narrow previews
+to `build/reports/stage2/`. Eleven additional request lifecycle cases use real
+Swing controls and the coordinator with a proxy for project disposal state. They
+cover stale replies, clearing, disposal, failures, deadlines, recovery, example
+selection and context delivery. These do not replace actual IDE acceptance.
 
 Sandbox log:
 
@@ -118,7 +139,7 @@ instead of packaging a duplicate.
 ```text
 .run/                   Shared IDE run configuration
 gradle/                 Wrapper and JDK 21 daemon criteria
-src/main/java/          Chat view, IDE factory and isolated sample provider
+src/main/java/          UI, context, coordinator, service contracts and sample adapters
 src/main/resources/     Plugin descriptor, icon and message resources
 docs/                   Module boundaries, draft contracts and review notes
 tools/                  Standalone Swing interaction checks
@@ -130,11 +151,14 @@ Kotlin build scripts and the existing build plugin remain unchanged.
 
 ## Collaboration and stage reviews
 
+- [Team onboarding, ownership and GitHub workflow](CONTRIBUTING.md)
 - [Architecture and ownership](docs/architecture.md)
-- [Draft service contracts](docs/interfaces.md)
+- [Service contracts and pending integration agreements](docs/interfaces.md)
 - [Stage 1 review and verification](docs/stage-1-review.md)
 - [Stage 2 review and acceptance](docs/stage-2-review.md)
 - [Stage 2 visual revision and editor color diagnosis](docs/stage-2-visual-review.md)
+- [Stage 3 context review](docs/stage-3-review.md)
+- [Stage 4 implementation, fixes and acceptance](docs/stage-4-review.md)
 
 Each member owns their module and documentation. Coordinate interface changes
 with affected members. Complete one stage, report checks and limitations, then

@@ -2,7 +2,6 @@ package edu.teamc.courseaiassistant.service;
 
 import edu.teamc.courseaiassistant.model.ChatAnswer;
 import edu.teamc.courseaiassistant.model.ChatRequest;
-import edu.teamc.courseaiassistant.model.ServiceFailure;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.concurrent.CompletableFuture;
@@ -15,7 +14,10 @@ public interface ChatService {
 
     /**
      * Asks a question with optional code context.
-     * Returns a future that completes with either an answer or a failure.
+     * Called off the EDT. Return a non-null future, completed with a non-null answer
+     * carrying the same request ID, or completed exceptionally with ServiceFailure.
+     * Cancellation of this future must abort owned transport/retrieval work where possible;
+     * CompletableFuture.cancel(true) alone does not interrupt arbitrary background work.
      */
     @NotNull
     CompletableFuture<ChatAnswer> ask(@NotNull ChatRequest request);

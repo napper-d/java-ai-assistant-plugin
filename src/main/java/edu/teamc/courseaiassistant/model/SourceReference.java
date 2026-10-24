@@ -61,7 +61,7 @@ public final class SourceReference {
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append("[").append(referenceId).append("] ").append(documentName);
-        if (pageStart != null && pageEnd != null) {
+        if (pageStart != null && pageEnd != null && !pageStart.equals(pageEnd)) {
             sb.append(" — pages ").append(pageStart).append("–").append(pageEnd);
         } else if (pageStart != null) {
             sb.append(" — page ").append(pageStart);

@@ -20,11 +20,14 @@ import java.awt.event.ActionEvent;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 /** Local chat view. Never changes IDE theme, editor settings, or source files. */
 public final class ChatPanel extends JPanel {
     private final @Nullable SampleReplyProvider sampleReplies;
     private final @Nullable RequestCoordinator coordinator;
+    private final @Nullable Consumer<SampleScenario> configureSample;
+    private final boolean sampleMode;
     private final ConversationView conversation = new ConversationView();
     private final JTextArea question = new ChatWidgets.Input();
     private final JComboBox<SampleScenario> scenario = new ChatWidgets.ExampleSelector<>(SampleScenario.values());
@@ -33,19 +36,27 @@ public final class ChatPanel extends JPanel {
     private final JLabel status = new ChatWidgets.Label("Enter to send, Shift+Enter for new line", -1, false, true);
     private final JScrollPane history = ChatWidgets.scrollPane(conversation);
     private final JPanel contextPreviewPanel = new JPanel(new BorderLayout());
-    private final JLabel loadingIndicator = new ChatWidgets.Label("Thinking…", -1, false, true);
     private CodeContext currentContext;
     private String currentRequestId;
     private boolean isWaitingForResponse;
+    private boolean disposed;
 
     public ChatPanel(SampleReplyProvider replies) {
         this(replies, null);
     }
 
     public ChatPanel(@Nullable SampleReplyProvider sampleReplies, @Nullable RequestCoordinator coordinator) {
+        this(sampleReplies, coordinator, null);
+    }
+
+    /** The optional selector configures an asynchronous sample adapter before each request. */
+    public ChatPanel(@Nullable SampleReplyProvider sampleReplies, @Nullable RequestCoordinator coordinator,
+                     @Nullable Consumer<SampleScenario> configureSample) {
         super(new BorderLayout(0, 8));
         this.sampleReplies = sampleReplies;
         this.coordinator = coordinator;
+        this.configureSample = configureSample;
+        this.sampleMode = sampleReplies != null || configureSample != null;
         if (sampleReplies == null && coordinator == null) {
             throw new IllegalArgumentException("At least one of sampleReplies or coordinator must be provided");
         }
@@ -79,8 +90,7 @@ public final class ChatPanel extends JPanel {
         });
         question.getActionMap().put("insertNewline", new AbstractAction() {
             @Override public void actionPerformed(ActionEvent event) {
-                int caretPosition = question.getCaretPosition();
-                question.insert("\n", caretPosition);
+                question.replaceSelection("\n");
             }
         });
 
@@ -99,8 +109,10 @@ public final class ChatPanel extends JPanel {
         title.add(new ChatWidgets.Label("Course AI Assistant", 1, true, false), BorderLayout.CENTER);
         title.add(clear, BorderLayout.EAST);
         header.add(title, BorderLayout.NORTH);
-        String modeText = coordinator != null ? "Live mode" : "Sample mode: local replies only";
-        header.add(new ChatWidgets.Label(modeText, -1, false, true), BorderLayout.SOUTH);
+        String modeText = sampleMode ? "Sample mode: no model or course retrieval connected" : "Live mode";
+        JLabel mode = new ChatWidgets.Label(modeText, -1, false, true);
+        mode.setName("replyMode");
+        header.add(mode, BorderLayout.SOUTH);
         header.setBorder(new EmptyBorder(0, 2, 8, 2));
         return header;
     }
@@ -125,7 +137,7 @@ public final class ChatPanel extends JPanel {
         exampleLabel.setLabelFor(scenario);
         example.add(exampleLabel, BorderLayout.WEST);
         example.add(scenario, BorderLayout.CENTER);
-        tools.add(example, BorderLayout.CENTER);
+        if (sampleMode) tools.add(example, BorderLayout.CENTER);
         tools.add(send, BorderLayout.EAST);
         inputCard.add(tools, BorderLayout.SOUTH);
         composer.add(inputCard, BorderLayout.CENTER);
@@ -134,6 +146,7 @@ public final class ChatPanel extends JPanel {
     }
 
     private void submitQuestion() {
+        if (disposed) return;
         if (isWaitingForResponse) {
             status.setText("Already waiting for a response…");
             return;
@@ -150,6 +163,7 @@ public final class ChatPanel extends JPanel {
         question.setText("");
 
         if (coordinator != null) {
+            if (configureSample != null) configureSample.accept((SampleScenario) scenario.getSelectedItem());
             submitAsyncRequest(text, contextToSend);
         } else if (sampleReplies != null) {
             submitSampleRequest(text, contextToSend);
@@ -176,7 +190,9 @@ public final class ChatPanel extends JPanel {
 
         conversation.addUserMessage(text, context);
         showLoadingIndicator();
-        send.setEnabled(false);
+        clear.setEnabled(true);
+        updateSendState();
+        scenario.setEnabled(false);
         status.setText("Waiting for response…");
 
         coordinator.submitChatRequest(request, new RequestCoordinator.ChatCallback() {
@@ -186,29 +202,30 @@ public final class ChatPanel extends JPanel {
 
             @Override
             public void onRequestCompleted(@NotNull ChatAnswer answer) {
-                SwingUtilities.invokeLater(() -> handleResponseCompleted(answer));
+                if (isCurrentRequest(request.getRequestId())) handleResponseCompleted(answer);
             }
 
             @Override
             public void onRequestFailed(@NotNull ServiceFailure failure) {
-                SwingUtilities.invokeLater(() -> handleResponseFailed(failure));
+                if (isCurrentRequest(request.getRequestId())) handleResponseFailed(failure);
             }
 
             @Override
             public void onRequestCancelled(@NotNull String requestId) {
-                SwingUtilities.invokeLater(() -> handleResponseCancelled());
+                if (isCurrentRequest(requestId)) handleResponseCancelled();
             }
         });
     }
 
     private void handleResponseCompleted(ChatAnswer answer) {
         hideLoadingIndicator();
-        conversation.addAssistantMessage(answer);
+        conversation.addAssistantMessage(answer, sampleMode);
         isWaitingForResponse = false;
         currentRequestId = null;
+        scenario.setEnabled(true);
         clear.setEnabled(true);
         updateSendState();
-        status.setText("Response received.");
+        status.setText(sampleMode ? "Fixed sample reply. No model connected." : "Response received.");
         question.requestFocusInWindow();
         SwingUtilities.invokeLater(() -> {
             if (isDisplayable() && conversation.hasMessages()) {
@@ -222,6 +239,7 @@ public final class ChatPanel extends JPanel {
         conversation.addErrorMessage(failure.getMessage(), failure.isRetryable());
         isWaitingForResponse = false;
         currentRequestId = null;
+        scenario.setEnabled(true);
         clear.setEnabled(true);
         updateSendState();
         status.setText("Request failed. " + (failure.isRetryable() ? "You can retry." : ""));
@@ -232,31 +250,35 @@ public final class ChatPanel extends JPanel {
         hideLoadingIndicator();
         isWaitingForResponse = false;
         currentRequestId = null;
+        scenario.setEnabled(true);
         clear.setEnabled(true);
         updateSendState();
         status.setText("Request cancelled.");
-        status.setText("Enter to send, Shift+Enter for new line");
         question.requestFocusInWindow();
     }
 
+    private boolean isCurrentRequest(String requestId) {
+        return !disposed && isWaitingForResponse && requestId.equals(currentRequestId);
+    }
+
     private void showLoadingIndicator() {
-        loadingIndicator.setVisible(true);
-        JPanel loadingPanel = ChatWidgets.transparent(new FlowLayout(FlowLayout.LEFT, 0, 0));
-        loadingPanel.add(loadingIndicator);
-        loadingPanel.setName("loadingIndicator");
         conversation.addLoadingMessage();
     }
 
     private void hideLoadingIndicator() {
-        loadingIndicator.setVisible(false);
         conversation.removeLoadingMessage();
     }
 
     private void updateSendState() {
-        send.setEnabled(!question.getText().isBlank());
+        send.setEnabled(!disposed && !isWaitingForResponse && !question.getText().isBlank());
     }
 
     private void clearConversation() {
+        String requestToCancel = currentRequestId;
+        // Invalidate the UI request before cancellation can enqueue any callback.
+        currentRequestId = null;
+        isWaitingForResponse = false;
+        if (requestToCancel != null && coordinator != null) coordinator.cancelRequest(requestToCancel);
         conversation.showWelcome();
         question.setText("");
         clear.setEnabled(false);
@@ -264,11 +286,7 @@ public final class ChatPanel extends JPanel {
         history.getVerticalScrollBar().setValue(0);
         updateSendState();
         clearCodeContext();
-        if (isWaitingForResponse && currentRequestId != null && coordinator != null) {
-            coordinator.cancelRequest(currentRequestId);
-        }
-        isWaitingForResponse = false;
-        currentRequestId = null;
+        scenario.setEnabled(true);
         hideLoadingIndicator();
     }
 
@@ -277,6 +295,7 @@ public final class ChatPanel extends JPanel {
      * Called by the right-click action when the user selects code and invokes the assistant.
      */
     public void attachCodeContext(CodeContext context) {
+        if (disposed) return;
         this.currentContext = Objects.requireNonNull(context);
         updateContextPreview();
         question.requestFocusInWindow();
@@ -339,5 +358,13 @@ public final class ChatPanel extends JPanel {
 
     public JComponent getPreferredFocusComponent() {
         return question;
+    }
+
+    /** Called when the Tool Window content is disposed, rather than merely hidden. */
+    public void dispose() {
+        disposed = true;
+        currentRequestId = null;
+        isWaitingForResponse = false;
+        if (coordinator != null) coordinator.dispose();
     }
 }

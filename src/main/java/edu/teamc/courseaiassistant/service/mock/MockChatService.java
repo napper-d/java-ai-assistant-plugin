@@ -5,6 +5,7 @@ import edu.teamc.courseaiassistant.service.ChatService;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -21,11 +22,12 @@ public final class MockChatService implements ChatService {
         SLOW_SUCCESS
     }
 
-    private final Scenario scenario;
+    private volatile Scenario scenario;
     private final long delayMillis;
 
     public MockChatService(Scenario scenario, long delayMillis) {
-        this.scenario = scenario;
+        this.scenario = Objects.requireNonNull(scenario);
+        if (delayMillis < 0) throw new IllegalArgumentException("Delay cannot be negative");
         this.delayMillis = delayMillis;
     }
 
@@ -33,35 +35,33 @@ public final class MockChatService implements ChatService {
         this(Scenario.SUCCESS_COURSE_GROUNDED, 500);
     }
 
+    public void setScenario(Scenario scenario) {
+        this.scenario = Objects.requireNonNull(scenario);
+    }
+
     @Override
     @NotNull
     public CompletableFuture<ChatAnswer> ask(@NotNull ChatRequest request) {
-        return CompletableFuture.supplyAsync(() -> {
+        Scenario selected = scenario;
+        long delay = selected == Scenario.SLOW_SUCCESS ? Math.max(2000, delayMillis) : delayMillis;
+        CompletableFuture<ChatAnswer> future = new CompletableFuture<>();
+        // No sleeping common-pool worker. A cancelled mock skips reply generation.
+        CompletableFuture.delayedExecutor(delay, TimeUnit.MILLISECONDS).execute(() -> {
+            if (future.isDone()) return;
             try {
-                TimeUnit.MILLISECONDS.sleep(delayMillis);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException(e);
+                switch (selected) {
+                    case SUCCESS_COURSE_GROUNDED, SLOW_SUCCESS -> future.complete(createCourseGroundedAnswer(request));
+                    case SUCCESS_GENERAL_KNOWLEDGE -> future.complete(createGeneralKnowledgeAnswer(request));
+                    case TIMEOUT -> future.completeExceptionally(new ServiceFailure(request.getRequestId(),
+                            ServiceFailure.Category.TIMEOUT, "Simulated request timeout", true));
+                    case NETWORK_ERROR -> future.completeExceptionally(new ServiceFailure(request.getRequestId(),
+                            ServiceFailure.Category.NETWORK_ERROR, "Simulated network connection failure", true));
+                }
+            } catch (Exception error) {
+                future.completeExceptionally(error);
             }
-
-            return switch (scenario) {
-                case SUCCESS_COURSE_GROUNDED -> createCourseGroundedAnswer(request);
-                case SUCCESS_GENERAL_KNOWLEDGE -> createGeneralKnowledgeAnswer(request);
-                case TIMEOUT -> throw new RuntimeException(new ServiceFailure(
-                        request.getRequestId(),
-                        ServiceFailure.Category.TIMEOUT,
-                        "Request timed out after " + delayMillis + "ms",
-                        true
-                ));
-                case NETWORK_ERROR -> throw new RuntimeException(new ServiceFailure(
-                        request.getRequestId(),
-                        ServiceFailure.Category.NETWORK_ERROR,
-                        "Network connection failed",
-                        true
-                ));
-                case SLOW_SUCCESS -> createCourseGroundedAnswer(request);
-            };
         });
+        return future;
     }
 
     private ChatAnswer createCourseGroundedAnswer(ChatRequest request) {
@@ -99,10 +99,10 @@ public final class MockChatService implements ChatService {
 
         return new ChatAnswer(
                 request.getRequestId(),
-                answer,
+                answer + " [S1]",
                 List.of(source),
                 ChatAnswer.Provenance.COURSE_GROUNDED,
-                null
+                "The source above is invented for this UI example; no course material was retrieved."
         );
     }
 

@@ -6,11 +6,21 @@ build/
 .kotlin
 .intellijPlatform/
 
+### Local configuration and credentials ###
+.env
+.env.*
+!.env.example
+local.properties
+
 ### IntelliJ IDEA ###
 .idea/modules.xml
 .idea/jarRepositories.xml
 .idea/compiler.xml
 .idea/libraries/
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/shelf/
+.idea/httpRequests/
 *.iws
 *.iml
 *.ipr

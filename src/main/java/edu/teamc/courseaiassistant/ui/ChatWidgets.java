@@ -175,7 +175,7 @@ final class ChatWidgets {
             setFocusPainted(false);
             setOpaque(false);
             setRolloverEnabled(true);
-            setToolTipText(send ? "Send sample question (Ctrl+Enter)" : "Clear chat");
+            setToolTipText(send ? "Send question (Enter)" : "Clear chat");
             getAccessibleContext().setAccessibleName(send ? "Send" : "Clear chat");
         }
 

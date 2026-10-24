@@ -14,7 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/** Standalone EDT smoke checks; no IDE, JUnit, model service or network required. */
+/** EDT smoke checks; uses the SDK classpath without starting an IDE or a model service. */
 public final class ChatPanelSmokeCheck {
     public static void main(String[] args) throws Exception {
         Path output = Path.of("build/reports/stage2");
@@ -70,7 +70,7 @@ public final class ChatPanelSmokeCheck {
         scenario.setSelectedItem(SampleScenario.GENERAL_KNOWLEDGE);
         question.setText("When should I use an ArrayList?");
         triggerSendShortcut(panel);
-        require(calls.get() == 2, "Ctrl+Enter sends once");
+        require(calls.get() == 2, "Enter sends once");
         require(transcriptText(history).contains(literal), "Previous exchange is retained");
         String general = transcriptText(history).substring(transcriptText(history).lastIndexOf("Course AI (fixed sample)"));
         require(general.contains("no specific course material is referenced"), "General knowledge is disclosed");
@@ -87,6 +87,14 @@ public final class ChatPanelSmokeCheck {
         send.doClick(0);
         require(!transcriptText(history).contains("Ask a question to try"), "First exchange replaces the welcome text");
         require(calls.get() == 3, "Sending works after clearing");
+
+        question.setText("before selected after");
+        question.select(7, 15);
+        Object newline = question.getInputMap().get(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.SHIFT_DOWN_MASK));
+        require(newline != null, "Shift+Enter is bound");
+        question.getActionMap().get(newline).actionPerformed(new ActionEvent(question, ActionEvent.ACTION_PERFORMED, ""));
+        require(question.getText().equals("before \n after"), "Shift+Enter replaces the selected text with a newline");
+        require(calls.get() == 3, "Shift+Enter does not send");
     }
 
     private static String transcriptText(ConversationView conversation) {
@@ -131,10 +139,10 @@ public final class ChatPanelSmokeCheck {
     }
 
     private static void triggerSendShortcut(ChatPanel panel) {
-        KeyStroke shortcut = KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.CTRL_DOWN_MASK);
-        Object key = panel.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT).get(shortcut);
-        require(key != null, "Ctrl+Enter is bound");
-        panel.getActionMap().get(key).actionPerformed(new ActionEvent(panel, ActionEvent.ACTION_PERFORMED, ""));
+        JTextArea input = find(panel, "questionInput", JTextArea.class);
+        Object key = input.getInputMap().get(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0));
+        require(key != null, "Enter is bound on the input");
+        input.getActionMap().get(key).actionPerformed(new ActionEvent(input, ActionEvent.ACTION_PERFORMED, ""));
     }
 
     private static void renderPreview(Path output, int width, int height, boolean general) throws Exception {

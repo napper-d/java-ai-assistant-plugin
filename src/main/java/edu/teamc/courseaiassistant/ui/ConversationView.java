@@ -59,7 +59,11 @@ public final class ConversationView extends JPanel implements Scrollable {
     }
 
     void addAssistantMessage(ChatAnswer answer) {
-        add(new AssistantMessage(answer));
+        addAssistantMessage(answer, false);
+    }
+
+    void addAssistantMessage(ChatAnswer answer, boolean isSample) {
+        add(new AssistantMessage(answer, isSample));
         revalidate();
         repaint();
     }
@@ -207,11 +211,15 @@ public final class ConversationView extends JPanel implements Scrollable {
         }
 
         AssistantMessage(ChatAnswer answer) {
+            this(answer, false);
+        }
+
+        AssistantMessage(ChatAnswer answer, boolean isSample) {
             this(
                     answer.getAnswer(),
                     answer.getDisclosure() != null ? answer.getDisclosure() : "",
                     answer.getSources(),
-                    false
+                    isSample
             );
         }
 

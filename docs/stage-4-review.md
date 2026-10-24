@@ -1,94 +1,72 @@
 # 第四阶段审阅：服务接口与后台请求
 
-> 第三阶段已通过。本阶段实现服务接口契约、异步请求协调、加载状态和错误处理。第四阶段不接入真实 LLM 或 RAG，使用 MockChatService 模拟异步行为。
+> 2026-10-24 审阅修订。前三阶段已通过；本阶段修复请求状态、取消、生命周期、示例标识和检查入口。真实 LLM、RAG、Diff 和写回仍未接入。
 
-## 1. 本阶段功能
+## 1. 完成内容
 
-- 定义完整的服务接口契约：`ChatRequest`、`ChatAnswer`、`SourceReference`、`KnowledgeChunk`、`ServiceFailure`。
-- 实现 `ChatService` 和 `KnowledgeSearch` 接口，提供 `MockChatService` 模拟异步调用。
-- 创建 `RequestCoordinator` 管理请求生命周期：后台执行、取消、超时、项目关闭时的资源释放。
-- `ChatPanel` 支持两种模式：Sample mode（本地固定回复）和 Live mode（异步服务调用）。
-- 异步请求时显示加载指示器（"Thinking…"），禁用发送按钮防止重复提交。
-- 请求完成后显示真实回复，包含来源引用和免责声明。
-- 请求失败时显示错误消息，区分可重试和不可重试错误。
-- 清空会话时自动取消正在进行的请求。
-- 使用 `Disposer` 确保工具窗口关闭时释放 `RequestCoordinator` 资源。
+- 问答与检索契约已实现；补齐修改请求、单文件修改建议、批准/取消结果及成员 3/4 的服务接口。F2 契约为可审阅的交接提案，尚待队友确认，无服务实现或文件写入。
+- 保留用户确认的行号上下文设计：一基、首尾均包含，不传递选区偏移量；完整选区文本和修改戳记随请求保留。
+- RequestCoordinator 使用自有后台执行器启动 ChatService，包括可能同步抛异常的服务启动阶段；结果统一在 EDT 交付。
+- 默认 30 秒实际超时，产生可重试 TIMEOUT；停止本地调用并取消服务 Future。不能把 Future 取消等同于强制中断任意网络工作，真实适配器必须传播取消。
+- 请求在结果交付前仍保留追踪，清空可以使已排队的成功结果失效；取消走独立回调，不显示为 UNKNOWN 错误。
+- ChatPanel 核对当前 request ID，清空先使旧 ID 失效，再取消请求；旧结果不能进入新会话或结束新请求。
+- 首次等待时即可 Clear chat；等待时输入草稿不会启用 Send。完成、失败或取消后恢复操作。
+- 内容销毁及项目关闭时释放协调器和执行器，移除窗口注册表条目；仅隐藏侧栏不会销毁会话。EDT 交付时再次检查释放状态。
+- Mock 仍明确显示 Sample mode；回答及来源保持固定示例/虚构标识。两种 Example 选择均影响下一次异步请求。
+- 超时、网络及模型错误保留 ServiceFailure 分类和重试属性；未知异常使用通用消息，不将原始诊断内容直接显示给用户。
+- 右键采集使用触发操作的 Editor，与操作启用判断保持一致。
+- 快捷键统一为 Enter 发送、Shift+Enter 换行，检查脚本和 README 同步。
 
-## 2. 结构与设计
+## 2. 主要文件
 
-| 文件或目录 | 用途 |
+| 文件 | 用途 |
 | --- | --- |
-| `model/ChatRequest.java` | 问答请求数据结构，包含问题文本和可选的代码上下文 |
-| `model/ChatAnswer.java` | 问答回复数据结构，包含答案文本、来源列表、出处标记和免责声明 |
-| `model/SourceReference.java` | 来源引用数据结构，包含文档名、页码范围或作用域 |
-| `model/KnowledgeChunk.java` | 知识块数据结构，用于 RAG 检索结果 |
-| `model/ServiceFailure.java` | 服务失败数据结构，继承 `Exception`，包含错误类别和可重试标志 |
-| `service/ChatService.java` | 聊天服务接口，返回 `CompletableFuture<ChatAnswer>` |
-| `service/KnowledgeSearch.java` | 知识检索服务接口，返回 `CompletableFuture<List<KnowledgeChunk>>` |
-| `service/mock/MockChatService.java` | 模拟聊天服务，支持多种场景（成功、超时、网络错误、慢响应） |
-| `application/RequestCoordinator.java` | 请求协调器，管理异步请求生命周期，实现 `Disposable` |
-| `ui/ChatPanel.java` | 支持 Sample mode 和 Live mode，集成加载状态和错误处理 |
-| `ui/ConversationView.java` | 新增 `LoadingMessage` 和 `ErrorMessage` 组件 |
-| `ui/CourseAiToolWindowFactory.java` | 创建 `RequestCoordinator` 并注册到 `Disposer` |
+| `application/RequestCoordinator.java` | 后台启动、实际超时、取消、异常归一化、EDT 交付和释放 |
+| `ui/ChatPanel.java` | 当前请求 ID、等待状态、清空、样例配置和内容释放 |
+| `ui/CourseAiToolWindowFactory.java` | Mock 接线与内容生命周期绑定 |
+| `ui/ConversationView.java` | 异步示例标识与来源展示 |
+| `service/ChatService.java` | 调用、结果 ID、失败及取消契约 |
+| `service/mock/MockChatService.java` | 可配置成功/失败场景，延迟完成，不睡眠占用工作线程 |
+| `model/ModificationRequest.java`、`CodeChange.java`、`ChangeProposal.java`、`ModificationResult.java` | F2 单文件/整文件快照交接数据，无 I/O |
+| `service/CodeGenerationService.java`、`ModificationService.java` | 成员 3/4 接入端口，无实现 |
+| `tools/check-chat-ui.ps1` | 使用已缓存目标 SDK 编译实际生产代码并运行两组检查 |
+| `tools/RequestLifecycleCheck.java` | 请求生命周期回归检查 |
+| `docs/interfaces.md` | 实际 Java 签名、线程/取消约定及队友交接说明 |
 
-异步执行：使用 `CompletableFuture.supplyAsync()` 在后台线程执行服务调用，通过 `whenComplete()` 在完成后回调。所有 UI 更新通过 `SwingUtilities.invokeLater()` 切换到 EDT。
+## 3. 验证
 
-请求取消：`RequestCoordinator` 维护 `pendingRequests` 映射表，支持按 ID 取消单个请求或取消所有请求。取消时调用 `future.cancel(true)` 中断后台任务。
-
-资源管理：`RequestCoordinator` 实现 `Disposable` 接口，在 `dispose()` 时取消所有待处理请求。通过 `Disposer.register(toolWindow.getDisposable(), coordinator)` 确保工具窗口关闭时自动释放资源。
-
-错误处理：`ServiceFailure` 继承 `Exception`，包含错误类别（TIMEOUT、NETWORK_ERROR、MODEL_ERROR、INVALID_INPUT、UNKNOWN）和可重试标志。`RequestCoordinator` 在 `whenComplete()` 中捕获异常，区分 `ServiceFailure` 和其他错误，统一转换为 `ServiceFailure` 后回调 UI。
-
-MockChatService 场景：
-- `SUCCESS_COURSE_GROUNDED`：返回带课程来源的回复
-- `SUCCESS_GENERAL_KNOWLEDGE`：返回带免责声明的一般知识回复
-- `TIMEOUT`：模拟超时错误
-- `NETWORK_ERROR`：模拟网络错误
-- `SLOW_SUCCESS`：模拟慢响应（延迟 2 秒后成功）
-
-## 3. 验证记录
-
-- Gradle 构建通过（`buildPlugin`，20s），Java 21 编译成功。
-- 插件结构验证通过（`verifyPluginStructure`），无结构错误。
-- 插件 ZIP 产物包含所有新增类：model 包（5 个类）、service 包（2 个接口）、service.mock 包（1 个类）、application 包（1 个类）。
-- `ServiceFailure` 继承 `Exception`，可作为异常抛出和捕获。
-- `RequestCoordinator` 正确注册到 `Disposer`，工具窗口关闭时自动释放资源。
-- 实际 IDEA 窗口集成、异步请求、加载状态、错误处理和取消功能：待用户手动验收。
+命令：
 
 ```powershell
-.\gradlew.bat --offline --console=plain buildPlugin verifyPluginStructure
+.\tools\check-chat-ui.ps1
+.\gradlew.bat --offline --console=plain buildPlugin verifyPluginProjectConfiguration verifyPluginStructure --no-configuration-cache
 ```
 
-产物：`build/distributions/course-ai-assistant-1.0-SNAPSHOT.zip`。
+独立检查需要 JDK 21 和此前 Gradle 同步提取的 IDEA 2025.2.4 SDK；也可传入 `-IdeHome`。不启动 IDE、不调用模型、不下载依赖。
 
-## 4. 用户验收步骤
+- 原有输入、示例、引用隔离、会话、清空、主题、长文本及窄窗口布局检查通过，并重新生成离屏预览。
+- 新增 11 项生命周期用例通过：清空/取消与过期回调、已排队成功、内容销毁、项目销毁、Mock 超时、Mock 网络错误、嵌套异常、实际超时与服务取消、同步启动异常后恢复、异步示例/上下文传递、空结果/错误 request ID。
+- 全部生产 Java 源码通过 JDK 21 对目标 SDK 的编译；仍有 ContextCollector 使用弃用 API 的提示。
+- Gradle 打包、项目配置检查和插件结构检查全部通过（6m 19s；13 项任务，11 项执行、2 项已是最新）。
+- 真实 IDEA 窗口、编辑器集成、项目关闭及 IDE 内主题切换仍需手动验收；独立检查使用项目生命周期代理，不能证明实际 IDE 集成已通过。
 
-1. 关闭旧开发用 IDEA，运行 `Run IDE with Plugin`。
-2. 在开发用 IDEA 中打开任意 Java 项目。
-3. 打开 `Course AI Assistant` 工具窗口，确认顶部显示 `Live mode`（而非 `Sample mode`）。
-4. 输入问题并按 Enter，确认：
-   - 问题气泡立即显示在会话区
-   - 下方出现 "Thinking…" 加载指示器
-   - 发送按钮变为禁用状态
-   - 状态栏显示 "Waiting for response…"
-5. 等待约 0.5 秒后，确认加载指示器消失，出现 Course AI 回复，包含来源引用。
-6. 测试代码上下文：选中一段代码，右键调用 `Ask Course AI Assistant`，输入问题并发送，确认回复中包含代码位置信息。
-7. 测试快速连续发送：发送一个问题后，立即输入另一个问题并按 Enter，确认状态栏提示 "Already waiting for a response…"，不会重复发送。
-8. 测试清空会话：在等待回复时点击 Clear chat，确认会话清空，加载指示器消失。
-9. 测试错误场景（需要修改 MockChatService 的场景参数）：
-   - 将 `MockChatService` 构造改为 `new MockChatService(MockChatService.Scenario.TIMEOUT, 1000)`
-   - 重新运行插件，发送问题
-   - 确认显示错误消息 "⚠ Request timed out after 1000ms (You can retry)"
-10. 测试项目关闭：发送问题后，在等待回复时关闭项目窗口，确认没有异常或内存泄漏。
+预览位于 `build/reports/stage2/`。插件 ZIP 仍应由 Gradle 生成，不能以独立 javac 检查替代打包验证。
 
-## 5. 审阅边界
+## 4. 用户验收
 
-本阶段使用 `MockChatService` 模拟异步调用，不接入真实 LLM 或 RAG 服务。回复内容为固定文本，不包含真实的课程知识检索结果。
+1. 重启开发用 IDEA，打开一个 Java 示例工程和 Course AI Assistant。
+2. 确认顶部为 Sample mode。选择 With course citation，输入并按 Enter；立即看到问题和 Thinking，Send/Example 禁用，Clear chat 可用。
+3. 等待示例完成，确认 Fixed sample、Example sources (invented) 及虚构来源声明；不显示 Live mode。
+4. 改选 General knowledge 后发送，确认一般知识声明出现，本次回复没有课程引用。
+5. 选中代码并右键 Ask Course AI Assistant，检查路径、语言、行号和文本；切换编辑器后该快照仍保持，发送后显示位置摘要，示例回复包含位置。
+6. 首次发送后立即 Clear chat，再发送新问题，确认没有旧回答/取消错误，且新请求仍正常等待及完成。
+7. 输入等待期间的草稿，确认 Send 仍禁用；Shift+Enter 换行，不触发发送。
+8. 发送后关闭项目，确认日志没有失效界面访问；仅隐藏再打开侧栏应保留会话。
+9. 运行独立脚本验证慢响应、失败、超时和恢复路径；这些场景由自动检查配置，无需为验收修改默认 Mock 参数。
+10. 检查实际 IDEA 的浅色/深色主题及窄侧栏布局。
 
-`KnowledgeSearch` 接口已定义但未在 `RequestCoordinator` 中使用，留待第五阶段 F0 集成时由成员 2 实现。
+## 5. 边界与后续
 
-`ChatAnswer` 的 `Provenance` 字段（COURSE_GROUNDED / GENERAL_KNOWLEDGE）已定义，但 UI 层未根据此字段做差异化显示，留待后续优化。
+KnowledgeSearch、CodeGenerationService 和 ModificationService 尚无真实实现。F2 初始契约采用单文件整文件建议，待成员 3/4 确认；普通聊天仍只读取选区。第五阶段 A 才接入真实检索和问答，验收后再进行第五阶段 B 的 Diff/批准/写回。
 
-第五阶段将接入真实的 RAG 检索和 LLM 调用，替换 `MockChatService`。
-
-**状态：第四阶段实现与构建验证已完成，等待用户在实际 IDEA 中复核。**
+**状态：审阅修复、独立回归及打包/结构检查完成；等待用户 IDE 内验收，未进入第五阶段。**

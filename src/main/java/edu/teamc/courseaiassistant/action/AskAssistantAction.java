@@ -5,6 +5,7 @@ import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowManager;
 import edu.teamc.courseaiassistant.context.CodeContext;
@@ -30,7 +31,9 @@ public final class AskAssistantAction extends AnAction {
             return;
         }
 
-        CodeContext context = ContextCollector.captureFromActiveEditor(project);
+        Editor editor = event.getData(CommonDataKeys.EDITOR);
+        if (editor == null) return;
+        CodeContext context = ContextCollector.captureFromEditor(project, editor);
         if (context == null) {
             return;
         }
