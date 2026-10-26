@@ -1,10 +1,10 @@
-param([string]$IdeHome)
+param([string]$IdeHome, [switch]$Offline)
 
 $ErrorActionPreference = 'Stop'
 $pluginRoot = Split-Path -Parent $PSScriptRoot
 Push-Location -LiteralPath $pluginRoot
 try {
-    # Uses the real target SDK, but starts no IDE and makes no downloads.
+    # Uses the target SDK and Gradle-resolved dependencies; starts no IDE.
     if ($env:JAVA_HOME -and (Test-Path -LiteralPath (Join-Path $env:JAVA_HOME 'bin/javac.exe'))) {
         $compiler = Join-Path $env:JAVA_HOME 'bin/javac.exe'
         $runtime = Join-Path $env:JAVA_HOME 'bin/java.exe'
@@ -25,7 +25,12 @@ try {
     if (-not $IdeHome -or -not (Test-Path -LiteralPath (Join-Path $IdeHome 'lib/app.jar'))) {
         throw 'Target SDK not found. Sync Gradle once, or pass -IdeHome <IDEA 2025.2.4 directory>.'
     }
-    $sdkClasspath = Join-Path $IdeHome 'lib/*'
+    $classpathArguments = @('exportCheckClasspath', '--console=plain', '--no-configuration-cache')
+    if ($Offline) { $classpathArguments += '--offline' }
+    & .\gradlew.bat @classpathArguments
+    if ($LASTEXITCODE -ne 0) { throw 'Unable to resolve the UI check classpath.' }
+    $dependencyClasspath = Get-Content -LiteralPath 'build/ui-check-classpath.txt' -Raw
+    $sdkClasspath = "$dependencyClasspath;$(Join-Path $IdeHome 'lib/*')"
     New-Item -ItemType Directory -Force -Path 'build/ui-check' | Out-Null
     $sources = @(Get-ChildItem -LiteralPath 'src/main/java' -Recurse -Filter '*.java' | ForEach-Object FullName)
     $sources += 'tools/ChatPanelSmokeCheck.java', 'tools/RequestLifecycleCheck.java'

@@ -3,6 +3,8 @@
 The Java APIs below exist in `model/`, `context/` and `service/`. Chat uses
 `CompletableFuture`; the default Tool Window adapter is MockChatService, visibly
 marked as sample data. No real retrieval, LLM or modification service is registered.
+`rag.LocalKnowledgeSearch` implements KnowledgeSearch independently; its setup,
+scores, cancellation and error mapping are documented in [the RAG guide](rag-search.md).
 The F2 contracts are a concrete handoff proposal for Members 3–4, pending their
 agreement and Stage 5 integration; their existence does not imply F2 is implemented.
 
@@ -12,7 +14,7 @@ agreement and Stage 5 integration; their existence does not imply F2 is implemen
 | --- | --- |
 | `CodeContext` | Project-relative path (absolute for an external file), language ID, selected text, inclusive one-based start/end lines, document modification stamp, optional bounded surrounding text. The collector supplies no surrounding text. |
 | `SourceReference` | Reference ID, document name, optional page start/end or scope. At least page or scope is required. Equal start/end pages display as one page. |
-| `KnowledgeChunk` | Chunk ID, source, text and score in [0, 1]. Member 2 must agree on score normalization and relevance threshold. |
+| `KnowledgeChunk` | Chunk ID, source, text and score in [0, 1]. Local RAG uses original-question `(cosine + 1) / 2`, including for multi-step evidence. Explicitly expanded definitions may score below the provisional 0.75 semantic threshold; see the RAG guide. |
 | `ChatRequest` | Generated request ID, question, nullable CodeContext. No conversation history is currently submitted. |
 | `ChatAnswer` | Same request ID, answer, immutable sources, provenance (`COURSE_GROUNDED` / `GENERAL_KNOWLEDGE`), optional disclosure. |
 | `ServiceFailure` | Request ID, category, safe user-facing message and retryability; extends Exception. |
@@ -95,8 +97,14 @@ coordinates chat only; the modification UI and lifecycle are Stage 5 work.
 
 ## Integration handoff
 
-- Member 2: implement KnowledgeSearch; agree on document identity, page/scope rules,
-  normalized scores, no-match threshold and index persistence.
+- Member 2: validate the implemented LocalKnowledgeSearch against the chosen provider
+  and real materials; agree on identity, no-match threshold and integration. RAG
+  failures use RagException; ChatService maps them to ServiceFailure with its real
+  request ID. See the RAG guide for the proposed mapping and local index format.
+  Multi-step execution accepts an optional asynchronous FollowUpQueryPlanner;
+  the default expands explicit identifiers within each triggering evidence document
+  and preserves that evidence alongside its definitions within the result budget.
+  Member 3 may supply model-based planning, owning that client's lifecycle.
 - Member 3: implement ChatService / CodeGenerationService; agree on configuration,
   timeouts, safe failures, citation validation and propagation of cancellation.
 - Member 4: confirm the initial single-file/full-text proposal format, snapshot

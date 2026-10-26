@@ -12,7 +12,11 @@ build/
 !.env.example
 local.properties
 
+### Local course materials and generated RAG indexes ###
+.course-ai/
+
 ### IntelliJ IDEA ###
+.idea/
 .idea/modules.xml
 .idea/jarRepositories.xml
 .idea/compiler.xml

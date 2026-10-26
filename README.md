@@ -10,7 +10,15 @@ still runs in **Sample mode** with simulated replies and invented citations.
 Editor selections are captured as immutable code snapshots and passed to chat requests.
 The UI supports Enter to send, Shift+Enter for newlines, clearing during a request,
 and light/dark themes. Stage 4 review fixes are ready for IDE acceptance.
-Real RAG, LLM calls, Diff review and source writes are not implemented.
+The `rag` package now registers original PDF/PPTX paths without copying files, with configurable online
+embeddings, persisted local vector search, bounded multi-step reference expansion
+and a pluggable asynchronous query planner. It is not
+connected to the Tool Window yet. A real embedding provider and course corpus still
+need acceptance; LLM answers, Diff review and source writes remain pending.
+
+See [RAG configuration, commands and integration](docs/rag-search.md) and
+[Member 2 task status](docs/rag-search-task.md). `ragImport` needs no API key;
+`ragIndex` and `ragSearch` require the explicitly configured embedding endpoint.
 
 ## Development baseline
 
@@ -107,8 +115,10 @@ With a local JDK 21 selected in the current shell's `JAVA_HOME`:
 ```
 
 The script compiles all production Java sources and both check entry points with
-Java 21. It uses the IDEA 2025.2.4 SDK extracted by an earlier Gradle sync and
-starts no IDE, model service or network download. If automatic SDK discovery fails:
+Java 21. It uses the IDEA 2025.2.4 SDK extracted by an earlier Gradle sync and asks
+Gradle to export the dependency classpath, including the RAG libraries. It starts
+no IDE or model service. Gradle may download missing dependencies; pass `-Offline`
+after they are cached to prohibit downloads. If automatic SDK discovery fails:
 
 ```powershell
 .\tools\check-chat-ui.ps1 -IdeHome 'C:\path\to\ideaIU-2025.2.4-win'
@@ -139,7 +149,8 @@ instead of packaging a duplicate.
 ```text
 .run/                   Shared IDE run configuration
 gradle/                 Wrapper and JDK 21 daemon criteria
-src/main/java/          UI, context, coordinator, service contracts and sample adapters
+src/main/java/          UI, context, coordinator, service contracts, sample adapters and RAG
+src/test/java/          RAG parsing, persistence, retrieval and local HTTP tests
 src/main/resources/     Plugin descriptor, icon and message resources
 docs/                   Module boundaries, draft contracts and review notes
 tools/                  Standalone Swing interaction checks
@@ -154,6 +165,7 @@ Kotlin build scripts and the existing build plugin remain unchanged.
 - [Team onboarding, ownership and GitHub workflow](CONTRIBUTING.md)
 - [Architecture and ownership](docs/architecture.md)
 - [Service contracts and pending integration agreements](docs/interfaces.md)
+- [Local RAG configuration and integration](docs/rag-search.md)
 - [Stage 1 review and verification](docs/stage-1-review.md)
 - [Stage 2 review and acceptance](docs/stage-2-review.md)
 - [Stage 2 visual revision and editor color diagnosis](docs/stage-2-visual-review.md)

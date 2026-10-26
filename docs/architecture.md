@@ -6,7 +6,11 @@ Group C must implement F0 (course RAG Q&A, citations, embedded UI and selected-c
 questions) and F2 (instruction-driven changes reviewed in the built-in Diff Viewer
 before application). Stages 2–4 implement the Java chat Tool Window, selected-code
 snapshots and asynchronous request coordination. The default adapter is still a
-visibly marked MockChatService. RAG/LLM and modification implementations are future work.
+visibly marked MockChatService. The RAG package is available as a standalone adapter
+with original-path PDF/PPTX registration, online embeddings, persisted local search
+and bounded multi-step retrieval. Query planning is pluggable; the default expands
+explicit identifiers and the chat owner may supply model-based planning. Real-provider
+acceptance, chat integration, LLM and modification services remain pending.
 
 ## Proposed dependency flow
 

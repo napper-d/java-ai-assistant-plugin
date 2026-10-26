@@ -11,7 +11,8 @@ repository and are not included when cloning it.
 2. Read [architecture and ownership](docs/architecture.md) and
    [service contracts](docs/interfaces.md) before implementing an adapter.
 3. Build the current baseline, then run the sample chat window. The current answers
-   are fixed examples; real retrieval, model calls and modification services are pending.
+   are fixed examples. The RAG adapter can be exercised independently using
+   [the RAG guide](docs/rag-search.md); real chat integration and modification services are pending.
 4. Confirm the shared contracts with the affected members before changing them.
 
 Use the checked-in Gradle Wrapper and preserve the target versions. On Windows use
@@ -24,7 +25,7 @@ PowerShell script; other systems can still run the Gradle build and manual IDE c
 | Member | Area | Next deliverable |
 | --- | --- | --- |
 | 1 | `ui`, `action`, `context`, `application`; shared `model` contracts | IDE acceptance of Stage 4; integrate real adapters and preserve request lifecycle behavior |
-| 2 | Future `rag` package; `KnowledgeSearch` implementation | Course chunks with traceable page/scope metadata; retrieval success, empty result and failure cases |
+| 2 | `rag` package; `LocalKnowledgeSearch` implementation | Validate a real provider/corpus and thresholds; hand off ingestion/search APIs to Members 1/3 |
 | 3 | Future `llm` package; `ChatService` and `CodeGenerationService` implementations | Cited answers, general-knowledge disclosure, safe failures and cancellable transport; generation returns proposals only |
 | 4 | Future `modification` package; `ModificationService` implementation | Confirm the single-file/full-text handoff; built-in Diff review, explicit approval, stale-file checks and apply/cancel results |
 
@@ -79,8 +80,10 @@ the ZIP is not a substitute for the repository or assignment submission package.
 Keep model keys and local configuration outside version control. The configuration
 mechanism for the real provider is still to be agreed; no API-key setting is
 implemented by these preparation files. Share placeholder examples only. Course
-materials and generated indexes are not currently bundled; Member 2 should document
-their agreed input location and reproducible ingestion procedure during integration.
+materials and generated indexes are not bundled. The default local data directory
+is `.course-ai/` under the explicitly selected project root, ignored by this
+repository. See [the RAG guide](docs/rag-search.md) for import/rebuild commands,
+configuration and integration limits. Other user projects should ignore their own data directory.
 
 ## Initial GitHub publication
 
