@@ -56,6 +56,11 @@ public final class LocalIndexStore {
         public int chunkCount() { return entries.size(); }
         public int dimensions() { return dimensions; }
         public String generation() { return generation; }
+        public Set<String> documentIds() {
+            Set<String> result = new HashSet<>();
+            for (Entry entry : entries) { RagFiles.checkCancelled(); result.add(entry.chunk.documentId()); }
+            return Set.copyOf(result);
+        }
 
         List<KnowledgeChunk> search(float[] query, double minScore, int maximum, RagTaskRunner.Context context) {
             return search(query, minScore, maximum, null, context);

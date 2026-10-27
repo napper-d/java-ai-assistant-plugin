@@ -14,7 +14,7 @@ import javax.swing.text.View;
 import javax.swing.text.ViewFactory;
 import java.awt.*;
 
-/** Small Swing components scoped to the chat window, including live theme updates. */
+/** Shared Swing components for chat and retrieval, including live theme updates. */
 final class ChatWidgets {
     private ChatWidgets() {}
 
@@ -130,8 +130,14 @@ final class ChatWidgets {
     }
 
     static final class Input extends JTextArea {
+        private final String placeholder;
         Input() {
+            this("Ask about Java…");
+        }
+
+        Input(String placeholder) {
             super(3, 18);
+            this.placeholder = placeholder;
             setLineWrap(true);
             setWrapStyleWord(true);
             setOpaque(false);
@@ -155,7 +161,7 @@ final class ChatWidgets {
                 Graphics2D g = graphics(graphics);
                 g.setColor(ChatTheme.current().muted());
                 g.setFont(getFont());
-                g.drawString("Ask about Java…", getInsets().left,
+                g.drawString(placeholder, getInsets().left,
                         getInsets().top + getFontMetrics(getFont()).getAscent());
                 g.dispose();
             }
@@ -263,6 +269,21 @@ final class ChatWidgets {
                 g.dispose();
             }
         }
+    }
+
+    /** Shared bottom composer; callers supply their own actions and status content. */
+    static JPanel composer(JTextArea question, JComponent tools, JComponent status, JComponent above) {
+        JPanel composer = transparent(new BorderLayout(0, 7));
+        if (above != null) composer.add(above, BorderLayout.NORTH);
+        JPanel inputCard = new RoundedPanel(new BorderLayout(0, 12), false, true);
+        inputCard.setBorder(new EmptyBorder(10, 13, 10, 13));
+        JScrollPane inputScroll = scrollPane(question);
+        inputScroll.getViewport().setOpaque(false);
+        inputCard.add(inputScroll, BorderLayout.CENTER);
+        inputCard.add(tools, BorderLayout.SOUTH);
+        composer.add(inputCard, BorderLayout.CENTER);
+        composer.add(status, BorderLayout.SOUTH);
+        return composer;
     }
 
     static JScrollPane scrollPane(Component content) {

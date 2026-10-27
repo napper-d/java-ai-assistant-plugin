@@ -45,7 +45,7 @@ public final class AskAssistantAction extends AnAction {
         }
 
         toolWindow.activate(() -> {
-            ChatPanel panel = CourseAiToolWindowFactory.findChatPanel(toolWindow);
+            ChatPanel panel = CourseAiToolWindowFactory.selectChatPanel(toolWindow);
             if (panel != null) {
                 panel.attachCodeContext(context);
             }

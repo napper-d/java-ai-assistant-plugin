@@ -35,8 +35,8 @@ dependencies {
 }
 
 intellijPlatform {
-    // No plugin settings pages yet; re-enable when a Configurable is introduced.
-    buildSearchableOptions = false
+    // Course RAG now contributes a project settings page.
+    buildSearchableOptions = true
     pluginConfiguration {
         ideaVersion {
             sinceBuild = "252.25557"
@@ -55,6 +55,11 @@ java {
 }
 
 tasks {
+    runIde {
+        // Keep IDE diagnostics in idea.log without duplicating SDK/network warnings in Run.
+        // Restore console diagnostics with: runIde -PideConsoleLog=true
+        systemProperty("idea.log.console", providers.gradleProperty("ideConsoleLog").orElse("false").get())
+    }
     test {
         useJUnitPlatform()
         systemProperty("java.awt.headless", "true")

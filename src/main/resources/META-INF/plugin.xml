@@ -28,6 +28,12 @@
     <!-- Extensions defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
+        <projectConfigurable parentId="tools" id="edu.teamc.courseaiassistant"
+                             displayName="Course AI Assistant" groupWeight="100" nonDefaultProject="true"
+                             instance="edu.teamc.courseaiassistant.settings.CourseAiSettingsGroup"/>
+        <projectConfigurable parentId="edu.teamc.courseaiassistant" id="edu.teamc.courseaiassistant.rag"
+                             displayName="Course RAG" nonDefaultProject="true"
+                             instance="edu.teamc.courseaiassistant.settings.RagSettingsConfigurable"/>
         <toolWindow id="CourseAiAssistant" factoryClass="edu.teamc.courseaiassistant.ui.CourseAiToolWindowFactory"
                     anchor="right" icon="AllIcons.Toolwindows.ToolWindowPalette"/>
     </extensions>

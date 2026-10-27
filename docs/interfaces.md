@@ -2,7 +2,18 @@
 
 The Java APIs below exist in `model/`, `context/` and `service/`. Chat uses
 `CompletableFuture`; the default Tool Window adapter is MockChatService, visibly
-marked as sample data. No real retrieval, LLM or modification service is registered.
+marked as sample data. No real retrieval, LLM or modification service is wired into chat.
+The separate Course materials tab calls ProjectRagService through
+KnowledgeBaseOperations for registry management and rebuild/reload; it displays
+KnowledgeBaseSnapshot values and never turns them into ChatAnswer results.
+Retrieval preview calls the same project's `search(query, 5)` and displays the
+returned KnowledgeChunk/SourceReference values directly. Its settings/library
+subscriptions invalidate results without automatically issuing new queries.
+Its bottom composer and middle transcript reuse ChatWidgets and ConversationView.
+Each question is searched independently; in-memory exchanges are presentation
+history, never model context. Cancel keeps earlier exchanges; Clear removes history
+and the draft. Successful empty retrieval, exceptional completion and cancellation
+remain distinct and are shown as responses to their submitted question.
 `rag.LocalKnowledgeSearch` implements KnowledgeSearch independently; its setup,
 scores, cancellation and error mapping are documented in [the RAG guide](rag-search.md).
 The F2 contracts are a concrete handoff proposal for Members 3–4, pending their

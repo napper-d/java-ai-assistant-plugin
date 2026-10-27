@@ -11,6 +11,13 @@ with original-path PDF/PPTX registration, online embeddings, persisted local sea
 and bounded multi-step retrieval. Query planning is pluggable; the default expands
 explicit identifiers and the chat owner may supply model-based planning. Real-provider
 acceptance, chat integration, LLM and modification services remain pending.
+The R1-R3 GUI adaptation provides project settings and a Course materials tab.
+ProjectRagService owns each RAG session; KnowledgeBaseManager serializes material
+operations and rebuild/reload work, while KnowledgeBasePanel delivers results on
+the EDT. RetrievalPreviewPanel calls the existing KnowledgeSearch through the
+project service and shows raw excerpts and real sources. Settings and library
+changes invalidate its pending work and old results. The original ChatService
+remains a mock. See the RAG GUI plan and R3 review for acceptance.
 
 ## Proposed dependency flow
 

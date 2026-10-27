@@ -25,9 +25,14 @@ public final class ConversationView extends JPanel implements Scrollable {
     }
 
     void showWelcome() {
+        showWelcome("Ask about Java", "Ask a question to try the chat layout.\n\nChoose a local example below. "
+                + "Replies are fixed samples, not generated answers.");
+    }
+
+    void showWelcome(String title, String description) {
         removeAll();
         hasMessages = false;
-        add(new Welcome());
+        add(new Welcome(title, description));
         revalidate();
         repaint();
     }
@@ -69,7 +74,20 @@ public final class ConversationView extends JPanel implements Scrollable {
     }
 
     void addLoadingMessage() {
-        add(new LoadingMessage());
+        addLoadingMessage("Thinking…");
+    }
+
+    void addLoadingMessage(String label) {
+        add(new LoadingMessage(label));
+        revalidate();
+        repaint();
+    }
+
+    /** Plain, selectable content with an explicit speaker; no chat/model semantics. */
+    void addTextMessage(String speaker, String text) {
+        if (!hasMessages) removeAll();
+        hasMessages = true;
+        add(new TextMessage(speaker, text));
         revalidate();
         repaint();
     }
@@ -131,11 +149,13 @@ public final class ConversationView extends JPanel implements Scrollable {
     }
 
     private static final class Welcome extends Message {
-        private final ChatWidgets.Label title = new ChatWidgets.Label("Ask about Java", 4, true, false);
-        private final ChatWidgets.Text description = new ChatWidgets.Text(
-                "Ask a question to try the chat layout.\n\nChoose a local example below. "
-                        + "Replies are fixed samples, not generated answers.", true, 0);
-        Welcome() { add(title); add(description); }
+        private final ChatWidgets.Label title;
+        private final ChatWidgets.Text description;
+        Welcome(String title, String description) {
+            this.title = new ChatWidgets.Label(title, 4, true, false);
+            this.description = new ChatWidgets.Text(description, true, 0);
+            add(this.title); add(this.description);
+        }
         @Override int heightAt(int width) { return 76 + description.heightAt(Math.max(1, width - 24)); }
         @Override public void doLayout() {
             title.setBounds(12, 24, Math.max(1, getWidth() - 24), 30);
@@ -286,10 +306,27 @@ public final class ConversationView extends JPanel implements Scrollable {
         }
     }
 
-    private static final class LoadingMessage extends Message {
-        private final ChatWidgets.Label label = new ChatWidgets.Label("Thinking…", -1, false, true);
+    private static final class TextMessage extends Message {
+        private final ChatWidgets.Label speaker;
+        private final ChatWidgets.Text text;
+        TextMessage(String speaker, String text) {
+            this.speaker = new ChatWidgets.Label(speaker, 0, true, false);
+            this.text = new ChatWidgets.Text(text, false, 0);
+            add(this.speaker); add(this.text);
+        }
+        @Override int heightAt(int width) { return 28 + text.heightAt(width); }
+        @Override public void doLayout() {
+            speaker.setBounds(0, 0, getWidth(), 24);
+            text.setBounds(0, 28, getWidth(), text.heightAt(getWidth()));
+        }
+        @Override String plainText() { return speaker.getText() + "\n" + text.plainText(); }
+    }
 
-        LoadingMessage() {
+    private static final class LoadingMessage extends Message {
+        private final ChatWidgets.Label label;
+
+        LoadingMessage(String text) {
+            label = new ChatWidgets.Label(text, -1, false, true);
             add(label);
             getAccessibleContext().setAccessibleName("Loading");
         }

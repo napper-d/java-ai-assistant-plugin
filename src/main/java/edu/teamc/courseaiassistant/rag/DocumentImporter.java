@@ -12,10 +12,25 @@ import java.util.*;
 /** Registers original paths, without copying course files. Call blocking file work off the UI thread. */
 public final class DocumentImporter {
     public record ImportedDocument(String documentId, String documentName, String sha256, Path path, boolean reused) {}
+    public enum Availability { AVAILABLE, MISSING, UNREADABLE }
+    public record RegisteredDocument(String documentId, String documentName, Path path, Availability availability) {}
     private record Registry(int formatVersion, String corpusId, List<String> paths) {}
     private static final Gson JSON = new Gson();
     private final RagConfig config;
     public DocumentImporter(RagConfig config) { this.config = java.util.Objects.requireNonNull(config); }
+
+    /** Management view: reads the registry and file metadata, never hashes or parses originals. */
+    public List<RegisteredDocument> listRegisteredDocuments() {
+        List<RegisteredDocument> result = new ArrayList<>();
+        for (Path path : readPaths()) {
+            RagFiles.checkCancelled();
+            Availability availability = Files.notExists(path) ? Availability.MISSING
+                    : Files.isRegularFile(path) && Files.isReadable(path) ? Availability.AVAILABLE : Availability.UNREADABLE;
+            result.add(new RegisteredDocument(identity(path), path.getFileName().toString(), path, availability));
+        }
+        result.sort(Comparator.comparing(RegisteredDocument::documentName).thenComparing(document -> document.path().toString()));
+        return List.copyOf(result);
+    }
 
     public ImportedDocument importFile(Path source) {
         if (source == null || !Files.isRegularFile(source) || RagFiles.extension(source).isEmpty()) {

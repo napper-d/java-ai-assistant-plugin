@@ -4,10 +4,15 @@ import edu.teamc.courseaiassistant.model.KnowledgeChunk;
 import edu.teamc.courseaiassistant.service.KnowledgeSearch;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 /** Async retrieval adapter. Owns workers, borrows the embedding client; reload() switches generations. */
 public final class LocalKnowledgeSearch implements KnowledgeSearch, AutoCloseable {
+    public record IndexSummary(int chunks, int dimensions, Set<String> documentIds) {
+        public IndexSummary { documentIds = Set.copyOf(documentIds); }
+    }
     private final RagConfig config;
     private final EmbeddingClient embeddings;
     private final LocalIndexStore storage;
@@ -55,12 +60,22 @@ public final class LocalKnowledgeSearch implements KnowledgeSearch, AutoCloseabl
 
     /** Explicitly reload after a successful rebuild; in-flight queries retain their original snapshot. */
     public CompletableFuture<Integer> reload() {
+        return reload(LocalIndexStore.Snapshot::chunkCount);
+    }
+
+    /** Metadata describes the very snapshot loaded, without reading original course files or calling embeddings. */
+    public CompletableFuture<IndexSummary> reloadSummary() {
+        return reload(current -> new IndexSummary(current.chunkCount(), current.dimensions(), current.documentIds()));
+    }
+
+    private <T> CompletableFuture<T> reload(Function<LocalIndexStore.Snapshot, T> describe) {
         return tasks.submit(context -> {
             synchronized (loadLock) {
                 context.check();
                 var replacement = storage.load();
+                T result = describe.apply(replacement);
                 context.check(); snapshot = replacement;
-                return replacement.chunkCount();
+                return result;
             }
         });
     }

@@ -91,6 +91,30 @@ class DocumentPipelineTest {
         assertTrue(importer.listDocuments().isEmpty());
     }
 
+    @Test void managementListKeepsMissingAndUnreadablePathsWithoutParsingOriginals() throws Exception {
+        var importer = new DocumentImporter(RagTestSupport.config(root));
+        Path original = Files.writeString(root.resolve("registered.pdf"), "not parsed while listing");
+        String id = importer.importFile(original).documentId();
+        assertEquals(DocumentImporter.Availability.AVAILABLE, importer.listRegisteredDocuments().getFirst().availability());
+        Files.delete(original);
+        var missing = importer.listRegisteredDocuments().getFirst();
+        assertEquals(id, missing.documentId());
+        assertEquals(original.toAbsolutePath(), missing.path());
+        assertEquals(DocumentImporter.Availability.MISSING, missing.availability());
+        Files.createDirectory(original);
+        assertEquals(DocumentImporter.Availability.UNREADABLE, importer.listRegisteredDocuments().getFirst().availability());
+        assertTrue(importer.unregisterFile(original));
+        assertTrue(Files.isDirectory(original));
+    }
+
+    @Test void managementListDoesNotTreatCorruptRegistryAsAnEmptyLibrary() throws Exception {
+        var config = RagTestSupport.config(root);
+        Files.createDirectories(config.documentsDirectory());
+        Files.writeString(config.documentsDirectory().resolve("documents.json"), "broken");
+        var error = assertThrows(RagException.class, () -> new DocumentImporter(config).listRegisteredDocuments());
+        assertEquals(RagException.Reason.STORAGE_ERROR, error.getReason());
+    }
+
     @Test void emptyScannedOrCorruptDocumentsFailClearly() throws Exception {
         var parser = new DocumentLoader(false);
         var blank = RagTestSupport.pdf(root.resolve("scan.pdf"), "");

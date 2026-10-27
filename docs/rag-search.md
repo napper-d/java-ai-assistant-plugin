@@ -4,7 +4,7 @@
 
 `rag` 包提供 PDF/PPTX 原路径登记、按页/幻灯片解析、边界切分、可取消的在线 Embedding、LangChain4j 检索、可插拔的多步检索和 JSON 快照持久化。课件保留在原位置，插件不复制课件。对外接口仍为 `KnowledgeSearch`。
 
-聊天窗口继续使用原有 Mock。文件选择按钮、插件设置 UI、PasswordSafe 密钥存取和最终 ChatService 接线由成员 1/3 集成；当前可以通过 Gradle 命令和 Java API 独立使用本模块。
+聊天窗口继续使用原有 Mock。成员 1 按 [RAG GUI 分阶段计划](rag-gui-plan.md) 完成 R1 配置、R2 资料管理和 R3 独立检索预览；用户已授权从 R2 推进 R3，R3 等待用户验收。Course materials 内分 Files & index / Retrieval preview 两个子页，后者直接显示真实检索片段和来源，不生成回答。最终 ChatService 接线仍待成员 3，CLI / Java API 也可继续独立使用。
 
 当前在线适配器支持显式选择的 `openai-compatible` Embeddings JSON 协议。它不默认选择供应商、不默认使用任何远端地址或模型，也不保证任意提供方的私有协议兼容。供应商选定后应先核对协议并做真实联调。
 
@@ -182,7 +182,9 @@ indexer.close();
 embeddings.close();
 ```
 
-生产插件可从 PasswordSafe/配置服务获取密钥，创建 `RagConfig.EmbeddingSettings` 后直接构造配置，避免要求安装用户管理 `.env`。现有 `CourseAiToolWindowFactory` 尚未改动。
+IDE 适配通过 `settings.RagSettingsConfigurable` 配置普通参数，通过 PasswordSafe 单独存取密钥；`application.ProjectRagService` 直接组装 `RagConfig` 与项目级服务，不自动加载 CLI 的 `.env` 或进程环境变量。Embedding 客户端和密钥读取延迟到真正需要 Embedding 时，登记资料不需要密钥。保存配置取消旧服务任务，不自动建库或联网。IDE 首版固定使用当前项目根目录下的 `.course-ai` 和 `default` 课程库。`CourseAiToolWindowFactory` 通过 `KnowledgeBasePanel` 调用项目级管理服务，聊天仍使用 Mock。
+
+R2 管理 API：`DocumentImporter.listRegisteredDocuments()` 返回不含正文/哈希的原路径、稳定文档 ID 和 Available/Missing/Unreadable 元数据；原有 `listDocuments()` 仍保留给显式建库。`LocalKnowledgeSearch.reloadSummary()` 返回与实际加载快照一致的文档 ID 集合、片段数和维度，取消语义与 `reload()` 一致。清单损坏不会静默返回空列表。完整界面验收见 [R2 审阅](rag-gui-r2-review.md)。
 
 ## 分数、失败和生命周期
 

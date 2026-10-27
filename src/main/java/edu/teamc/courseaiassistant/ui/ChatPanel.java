@@ -118,19 +118,9 @@ public final class ChatPanel extends JPanel {
     }
 
     private JPanel createComposer() {
-        JPanel composer = ChatWidgets.transparent(new BorderLayout(0, 7));
-
         contextPreviewPanel.setOpaque(false);
         contextPreviewPanel.setVisible(false);
         contextPreviewPanel.setBorder(new EmptyBorder(0, 0, 4, 0));
-        composer.add(contextPreviewPanel, BorderLayout.NORTH);
-
-        JPanel inputCard = new ChatWidgets.RoundedPanel(new BorderLayout(0, 12), false, true);
-        inputCard.setBorder(new EmptyBorder(10, 13, 10, 13));
-        JScrollPane inputScroll = ChatWidgets.scrollPane(question);
-        inputScroll.getViewport().setOpaque(false);
-        inputCard.add(inputScroll, BorderLayout.CENTER);
-
         JPanel tools = ChatWidgets.transparent(new BorderLayout(6, 0));
         JPanel example = ChatWidgets.transparent(new BorderLayout(3, 0));
         JLabel exampleLabel = new ChatWidgets.Label("Example", -1, false, true);
@@ -139,10 +129,7 @@ public final class ChatPanel extends JPanel {
         example.add(scenario, BorderLayout.CENTER);
         if (sampleMode) tools.add(example, BorderLayout.CENTER);
         tools.add(send, BorderLayout.EAST);
-        inputCard.add(tools, BorderLayout.SOUTH);
-        composer.add(inputCard, BorderLayout.CENTER);
-        composer.add(status, BorderLayout.SOUTH);
-        return composer;
+        return ChatWidgets.composer(question, tools, status, contextPreviewPanel);
     }
 
     private void submitQuestion() {

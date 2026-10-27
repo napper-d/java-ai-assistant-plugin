@@ -8,12 +8,23 @@ Stages 1–3 were accepted. Stage 4 has service contracts, background invocation
 a 30-second request deadline, cancellation and failure recovery. The Tool Window
 still runs in **Sample mode** with simulated replies and invented citations.
 Editor selections are captured as immutable code snapshots and passed to chat requests.
+RAG GUI work is split into three user-reviewed stages: project settings/service
+assembly, course-material management, and standalone retrieval preview. See the
+[implementation and acceptance plan](docs/rag-gui-plan.md). The settings page is
+under Settings > Tools > Course AI Assistant > Course RAG; its API key is stored
+separately in IDE Password Safe. Saving settings does not call an API or build an index.
+R1 was accepted for continued development. The **Course materials** Tool Window tab
+now provides original-path registration/removal, saved-index loading, full rebuilds,
+cancellation and settings access. Following authorization to continue after R2,
+**Retrieval preview** now searches the saved index and displays real excerpts,
+source IDs and page/slide references. R3 awaits user acceptance; see the
+[R3 review and acceptance steps](docs/rag-gui-r3-review.md).
 The UI supports Enter to send, Shift+Enter for newlines, clearing during a request,
 and light/dark themes. Stage 4 review fixes are ready for IDE acceptance.
 The `rag` package now registers original PDF/PPTX paths without copying files, with configurable online
 embeddings, persisted local vector search, bounded multi-step reference expansion
 and a pluggable asynchronous query planner. It is not
-connected to the Tool Window yet. A real embedding provider and course corpus still
+connected to real chat yet; the Course materials tab uses its Java APIs. A real embedding provider and course corpus still
 need acceptance; LLM answers, Diff review and source writes remain pending.
 
 See [RAG configuration, commands and integration](docs/rag-search.md) and
@@ -81,6 +92,28 @@ instrumentation outputs: `.\gradlew.bat clean buildPlugin verifyPluginProjectCon
    knowledge. Neither generates an answer from your question.
 7. Close the development IDEA to finish `runIde`.
 
+Use **Course materials > Files & index > Add PDF / PPTX** to register course files, then configure
+your embedding endpoint/model/key through **Settings** and choose **Rebuild index**.
+Registration/removal and **Refresh / Load** work without an API key; rebuilding
+calls your configured embedding API. The table shows original paths and missing
+files, and hovering a cell shows its full value. Removing a registration keeps the
+original file and existing index. Rebuild after editing materials; a loaded snapshot
+does not prove the original files are unchanged. See the R2 review for recovery,
+cancellation and removal-of-the-last-file behavior.
+
+Open **Course materials > Retrieval preview** and type in the bottom composer,
+then use the send arrow or Enter (Shift+Enter adds a newline). Like Chat, the middle
+transcript retains each submitted question and its response; the composer clears
+on submission and remains editable while searching. Responses are saved course
+excerpts, not generated answers; each question is searched independently.
+Source references and original text can be selected and copied. Optional similarity
+scores apply to all displayed results and are not probabilities. **Cancel** stops
+only the current query and preserves completed exchanges and the next draft.
+The top trash icon clears the retrieval conversation and draft. History is in
+memory only. Settings and index/material operations clear old exchanges without
+automatically starting another query.
+Successful no-match and retrieval errors are distinct. Real chat remains in Sample mode.
+
 Use Enter to send and Shift+Enter for newlines. Blank questions are rejected.
 The top trash icon (**Clear chat**) removes the conversation and draft. History is in memory only,
 per window: it is not persisted or supplied to a model. No code or course files
@@ -105,6 +138,25 @@ editor is white while your everyday IDEA is dark, open **Settings > Editor > Col
 Scheme** in the development IDEA and choose a dark scheme such as Darcula. The IDE
 UI theme is separately configured in **Appearance & Behavior > Appearance**.
 This plugin only styles its own window; it does not change the global editor scheme.
+
+### Development log output
+
+`runIde` keeps IDE log output in `build/idea-sandbox/IU-2025.2.4/log/idea.log`
+instead of duplicating it in the Run console. This includes both platform and
+Course AI Assistant diagnostics. The shared run configuration's **idea.log** tab
+still shows the full log, and IDE error notifications remain enabled. Gradle
+build failures and JVM messages are unaffected; this is not a zero-warning mode.
+It does not prevent background network requests or improve Gradle configuration time.
+
+To restore IDE logging in the Run console for debugging:
+
+```powershell
+.\gradlew.bat runIde -PideConsoleLog=true
+```
+
+The Gradle plugin's automatic version check is disabled through
+`org.jetbrains.intellij.platform.selfUpdateCheck=false`; dependency resolution,
+project verification and the pinned plugin/IDE versions remain unchanged.
 
 ## Standalone interaction checks
 
@@ -139,9 +191,8 @@ build/idea-sandbox/IU-2025.2.4/log/idea.log
 The shared run configuration points to this path. Update it if the target platform
 is deliberately changed later.
 
-Searchable-settings index generation is disabled because this baseline provides
-no custom settings pages. Re-enable `buildSearchableOptions` when a plugin
-`Configurable` is added. The platform's bundled Kotlin standard library is used
+Searchable-settings index generation is enabled for the Course RAG settings page.
+The platform's bundled Kotlin standard library is used
 instead of packaging a duplicate.
 
 ## Source layout and language policy
