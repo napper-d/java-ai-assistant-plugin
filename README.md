@@ -4,6 +4,12 @@ IntelliJ IDEA plugin for CST3492 Assignment A, Group C (F0 + F2).
 
 ## Current status
 
+Member 3 now provides standalone real-provider chat and code-generation adapters in
+`llm/`, with cancellable transport, citation validation and proposal-only generation.
+See [Member 3 integration and configuration](docs/llm-services.md).
+The Tool Window still uses the mock; live IDE wiring and real-provider acceptance
+remain pending. Diff review and source writes remain Member 4 work.
+
 Stages 1–3 were accepted. Stage 4 has service contracts, background invocation,
 a 30-second request deadline, cancellation and failure recovery. The Tool Window
 still runs in **Sample mode** with simulated replies and invented citations.
@@ -25,7 +31,7 @@ The `rag` package now registers original PDF/PPTX paths without copying files, w
 embeddings, persisted local vector search, bounded multi-step reference expansion
 and a pluggable asynchronous query planner. It is not
 connected to real chat yet; the Course materials tab uses its Java APIs. A real embedding provider and course corpus still
-need acceptance; LLM answers, Diff review and source writes remain pending.
+need acceptance; live IDE LLM answers, Diff review and source writes remain pending.
 
 See [RAG configuration, commands and integration](docs/rag-search.md) and
 [Member 2 task status](docs/rag-search-task.md). `ragImport` needs no API key;

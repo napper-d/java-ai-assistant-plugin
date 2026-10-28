@@ -1,5 +1,10 @@
 # Architecture and Ownership — Stage 4
 
+Member 3 update: the `llm` package now implements the existing chat and code-generation
+ports as standalone adapters. See [LLM services](llm-services.md). The historical
+scope below predates this delivery; real-provider acceptance, Tool Window wiring
+and Member 4's modification workflow still remain pending.
+
 ## Scope and implementation status
 
 Group C must implement F0 (course RAG Q&A, citations, embedded UI and selected-code
@@ -10,7 +15,8 @@ visibly marked MockChatService. The RAG package is available as a standalone ada
 with original-path PDF/PPTX registration, online embeddings, persisted local search
 and bounded multi-step retrieval. Query planning is pluggable; the default expands
 explicit identifiers and the chat owner may supply model-based planning. Real-provider
-acceptance, chat integration, LLM and modification services remain pending.
+acceptance, live chat integration and modification review/apply services remain pending.
+The standalone Member 3 LLM adapters are documented in the update above.
 The R1-R3 GUI adaptation provides project settings and a Course materials tab.
 ProjectRagService owns each RAG session; KnowledgeBaseManager serializes material
 operations and rebuild/reload work, while KnowledgeBasePanel delivers results on

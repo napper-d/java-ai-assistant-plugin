@@ -1,5 +1,11 @@
 # Service Contracts — Stage 4
 
+Member 3 update: `llm.LlmChatService` and `llm.LlmCodeGenerationService` now implement
+the existing ports without changing their signatures. See [assembly and configuration](llm-services.md).
+These standalone services are not yet wired into the Tool Window. The modification
+review/apply implementation remains pending; the historical integration checklist
+below must not be read as provider or IDE acceptance.
+
 The Java APIs below exist in `model/`, `context/` and `service/`. Chat uses
 `CompletableFuture`; the default Tool Window adapter is MockChatService, visibly
 marked as sample data. No real retrieval, LLM or modification service is wired into chat.
@@ -118,8 +124,10 @@ coordinates chat only; the modification UI and lifecycle are Stage 5 work.
   the default expands explicit identifiers within each triggering evidence document
   and preserves that evidence alongside its definitions within the result budget.
   Member 3 may supply model-based planning, owning that client's lifecycle.
-- Member 3: implement ChatService / CodeGenerationService; agree on configuration,
-  timeouts, safe failures, citation validation and propagation of cancellation.
+- Member 3: standalone ChatService / CodeGenerationService adapters are now implemented
+  in `llm`; validate the chosen provider and agree on IDE configuration and assembly.
+  See [LLM services](llm-services.md) for timeouts, safe failures, citation validation
+  and propagation of cancellation.
 - Member 4: confirm the initial single-file/full-text proposal format, snapshot
   validation, Diff review, explicit approval and result callbacks.
 - Member 1: replace the mock in CourseAiToolWindowFactory; construct a live ChatPanel
