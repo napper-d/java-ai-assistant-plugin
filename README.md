@@ -8,7 +8,9 @@ Member 3 now provides standalone real-provider chat and code-generation adapters
 `llm/`, with cancellable transport, citation validation and proposal-only generation.
 See [Member 3 integration and configuration](docs/llm-services.md).
 The Tool Window still uses the mock; live IDE wiring and real-provider acceptance
-remain pending. Diff review and source writes remain Member 4 work.
+remain pending for ordinary chat. Member 4's separate Java-editor action now connects
+code generation to read-only Diff review and explicit approval before saving.
+See [F2 setup and acceptance](docs/f2-member4.md); real-provider acceptance remains pending.
 
 Stages 1–3 were accepted. Stage 4 has service contracts, background invocation,
 a 30-second request deadline, cancellation and failure recovery. The Tool Window
@@ -31,7 +33,8 @@ The `rag` package now registers original PDF/PPTX paths without copying files, w
 embeddings, persisted local vector search, bounded multi-step reference expansion
 and a pluggable asynchronous query planner. It is not
 connected to real chat yet; the Course materials tab uses its Java APIs. A real embedding provider and course corpus still
-need acceptance; live IDE LLM answers, Diff review and source writes remain pending.
+need acceptance; live IDE LLM chat answers remain pending. F2 has a separate explicit
+model-configured editor action with reviewed single-file writes.
 
 See [RAG configuration, commands and integration](docs/rag-search.md) and
 [Member 2 task status](docs/rag-search-task.md). `ragImport` needs no API key;
