@@ -9,8 +9,6 @@ import edu.teamc.courseaiassistant.rag.RagException;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import java.awt.*;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -33,26 +31,20 @@ public final class RagSettingsConfigurable implements SearchableConfigurable {
 
     @Override public JComponent createComponent() {
         if (root != null) return root;
-        root = new JPanel(new BorderLayout());
-        JPanel form = new JPanel(new GridBagLayout());
-        form.setBorder(new EmptyBorder(12, 12, 12, 12));
+        JPanel form = SettingsForm.form();
         addRow(form, "Protocol", new JLabel("OpenAI-compatible embeddings"));
-        field(form, "baseUrl", "API base URL (without /embeddings)");
+        field(form, "baseUrl", "API base URL");
+        SettingsForm.comment(form, "Do not include /embeddings in the base URL.");
         field(form, "model", "Embedding model");
         password = new JPasswordField(28);
         password.setName("ragApiKey");
-        addRow(form, "New API key", password);
-        removePassword = new JCheckBox("Clear the stored API key");
-        removePassword.addActionListener(event -> {
-            password.setEnabled(!removePassword.isSelected());
-            if (removePassword.isSelected()) password.setText("");
-        });
-        addRow(form, "", removePassword);
-        addRow(form, "", new JLabel("Leave the key blank to keep it. Keys are stored in IDE Password Safe."));
+        removePassword = new JCheckBox();
+        removePassword.setName("ragClearApiKey");
+        SettingsForm.credentials(form, password, removePassword);
         addRow(form, "Data", new JLabel("Current project / .course-ai / default"));
-        addRow(form, "", new JLabel("Saving does not build an index or contact a model. Chat stays in Sample mode."));
+        SettingsForm.comment(form, "Saving does not build an index or contact a model.");
 
-        JPanel advanced = new JPanel(new GridBagLayout());
+        JPanel advanced = SettingsForm.form();
         field(advanced, "timeoutMillis", "HTTP request timeout (ms)");
         field(advanced, "dimensions", "Dimensions (0 = infer automatically)");
         field(advanced, "chunkCharacters", "Chunk size (Unicode code points)");
@@ -67,44 +59,20 @@ public final class RagSettingsConfigurable implements SearchableConfigurable {
         addRow(advanced, "", multiStep);
         field(advanced, "maxRounds", "Maximum follow-up rounds (1-4)");
         field(advanced, "maxQueries", "Follow-up query budget (1-16)");
-        advanced.setVisible(false);
-        JCheckBox showAdvanced = new JCheckBox("Advanced settings");
-        showAdvanced.addActionListener(event -> {
-            advanced.setVisible(showAdvanced.isSelected());
-            root.revalidate();
-        });
-        addRow(form, "", showAdvanced);
-        addRow(form, "", advanced);
-        JPanel top = new JPanel(new BorderLayout());
-        top.add(form, BorderLayout.NORTH);
-        JScrollPane scroll = new JScrollPane(top);
-        scroll.setBorder(BorderFactory.createEmptyBorder());
-        root.add(scroll, BorderLayout.CENTER);
+        SettingsForm.advanced(form, advanced);
+        root = SettingsForm.page(form);
         reset();
         return root;
     }
 
     private void field(JPanel form, String name, String label) {
-        JTextField input = new JTextField(28);
-        input.setName("rag_" + name);
-        input.getAccessibleContext().setAccessibleName(label);
-        fields.put(name, input);
-        addRow(form, label, input);
+        SettingsForm.field(form, fields, "rag", name, label);
     }
 
     private static void addRow(JPanel form, String label, JComponent component) {
-        int row = form.getComponentCount() / 2;
-        GridBagConstraints constraints = new GridBagConstraints();
-        constraints.gridy = row; constraints.gridx = 0;
-        constraints.anchor = GridBagConstraints.NORTHWEST;
-        constraints.insets = new Insets(5, 0, 5, 10);
-        JLabel caption = new JLabel(label);
-        caption.setLabelFor(component);
-        form.add(caption, constraints);
-        constraints.gridx = 1; constraints.weightx = 1;
-        constraints.fill = GridBagConstraints.HORIZONTAL;
-        form.add(component, constraints);
+        SettingsForm.row(form, label, component);
     }
+
 
     private String text(String field) { return fields.get(field).getText().strip(); }
     private int number(String name) {

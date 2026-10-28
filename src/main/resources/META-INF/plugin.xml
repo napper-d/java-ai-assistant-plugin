@@ -34,6 +34,9 @@
         <projectConfigurable parentId="edu.teamc.courseaiassistant" id="edu.teamc.courseaiassistant.rag"
                              displayName="Course RAG" nonDefaultProject="true"
                              instance="edu.teamc.courseaiassistant.settings.RagSettingsConfigurable"/>
+        <projectConfigurable parentId="edu.teamc.courseaiassistant" id="edu.teamc.courseaiassistant.llm"
+                             displayName="Language model" nonDefaultProject="true"
+                             instance="edu.teamc.courseaiassistant.settings.LlmSettingsConfigurable"/>
         <toolWindow id="CourseAiAssistant" factoryClass="edu.teamc.courseaiassistant.ui.CourseAiToolWindowFactory"
                     anchor="right" icon="AllIcons.Toolwindows.ToolWindowPalette"/>
     </extensions>

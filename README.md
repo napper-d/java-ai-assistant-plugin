@@ -4,6 +4,12 @@ IntelliJ IDEA plugin for CST3492 Assignment A, Group C (F0 + F2).
 
 ## Current status
 
+Integration stage I1 adds project **Language model** settings under Settings > Tools >
+Course AI Assistant, a separate Password Safe key, and a lazy project-owned LLM service
+shared by future Chat/F2 wiring. Saving does not call an API. The current Chat and F2
+entries still use their existing wiring; see the [I1 review](docs/integration-i1-review.md)
+and [integration plan](docs/integration-plan.md) for the stage boundary and acceptance.
+
 Member 3 now provides standalone real-provider chat and code-generation adapters in
 `llm/`, with cancellable transport, citation validation and proposal-only generation.
 See [Member 3 integration and configuration](docs/llm-services.md).

@@ -154,6 +154,7 @@ class RagSettingsTest {
             try {
                 var form = configurable.createComponent();
                 assertFalse(configurable.isModified(), "Prefix whitespace must survive form reset");
+                LlmSettingsTest.verifyPresentation(form, configurable::isModified, "course-rag");
                 var key = (JPasswordField) named(form, "ragApiKey");
                 assertEquals(0, key.getPassword().length);
                 var model = (JTextField) named(form, "rag_model");

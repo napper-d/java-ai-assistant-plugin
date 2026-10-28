@@ -14,12 +14,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 
 /** Owns background invocation, deadlines and EDT delivery for one Tool Window content. */
 public final class RequestCoordinator implements Disposable {
     private final Project project;
     private final ChatService chatService;
-    private final long timeoutMillis;
+    private final Supplier<Duration> timeout;
     private final Map<String, PendingRequest> pendingRequests = new ConcurrentHashMap<>();
     private final ExecutorService workers = Executors.newCachedThreadPool(task -> {
         Thread thread = new Thread(task, "CourseAI-request");
@@ -39,10 +40,21 @@ public final class RequestCoordinator implements Disposable {
 
     public RequestCoordinator(@NotNull Project project, @NotNull ChatService chatService,
                               @NotNull Duration timeout) {
+        this(project, chatService, fixedTimeout(timeout));
+    }
+
+    /** Snapshot the current project's deadline for each request, including after settings changes. */
+    public RequestCoordinator(@NotNull Project project, @NotNull ChatService chatService,
+                              @NotNull Supplier<Duration> timeout) {
         this.project = Objects.requireNonNull(project);
         this.chatService = Objects.requireNonNull(chatService);
-        timeoutMillis = Objects.requireNonNull(timeout).toMillis();
-        if (timeoutMillis < 1) throw new IllegalArgumentException("Timeout must be at least 1 ms");
+        this.timeout = Objects.requireNonNull(timeout);
+    }
+
+    private static Supplier<Duration> fixedTimeout(Duration timeout) {
+        if (Objects.requireNonNull(timeout).toMillis() < 1)
+            throw new IllegalArgumentException("Timeout must be at least 1 ms");
+        return () -> timeout;
     }
 
     /** All callbacks run on the EDT; terminal callbacks are suppressed after disposal. */
@@ -65,6 +77,8 @@ public final class RequestCoordinator implements Disposable {
         }
         callback.onRequestStarted(pending.id);
         try {
+            long timeoutMillis = Objects.requireNonNull(timeout.get()).toMillis();
+            if (timeoutMillis < 1) throw new IllegalArgumentException("Timeout must be at least 1 ms");
             pending.deadline = deadlines.schedule(() -> {
                 if (complete(pending, null, new ServiceFailure(pending.id,
                         ServiceFailure.Category.TIMEOUT,
@@ -75,7 +89,7 @@ public final class RequestCoordinator implements Disposable {
             if (pending.finished.get()) pending.deadline.cancel(false);
             pending.worker = workers.submit(() -> invokeService(request, pending));
             if (pending.stopRequested.get()) pending.worker.cancel(true);
-        } catch (RejectedExecutionException error) {
+        } catch (RuntimeException error) {
             complete(pending, null, error);
         }
     }

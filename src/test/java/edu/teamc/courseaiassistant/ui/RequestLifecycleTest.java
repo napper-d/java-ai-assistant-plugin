@@ -125,6 +125,30 @@ class RequestLifecycleTest {
         } finally { coordinator.dispose(); }
     }
 
+    @Test void deadlineSupplierIsReadPerRequestAndInvalidValuesRecover() throws Exception {
+        ControlledService service = new ControlledService();
+        var timeout = new AtomicReference<>(Duration.ZERO);
+        var coordinator = new RequestCoordinator(project(new AtomicBoolean()), service, timeout::get);
+        try {
+            Recording invalid = new Recording();
+            edt(() -> coordinator.submitChatRequest(new ChatRequest("invalid timeout", null), invalid));
+            invalid.await();
+            require(invalid.failure.get() != null, "Invalid deadline must release UI with a safe failure");
+            require(service.calls.isEmpty(), "Invalid deadline cannot invoke service");
+            timeout.set(Duration.ofMillis(100));
+            Recording shortRequest = new Recording();
+            edt(() -> coordinator.submitChatRequest(new ChatRequest("short", null), shortRequest));
+            Call shortCall = service.next(); shortRequest.await();
+            await(shortCall.future::isCancelled);
+            timeout.set(Duration.ofSeconds(95));
+            Recording longRequest = new Recording();
+            edt(() -> coordinator.submitChatRequest(new ChatRequest("long", null), longRequest));
+            Call longCall = service.next();
+            longCall.future.complete(answer(longCall.request, "recovered")); longRequest.await();
+            require(longRequest.failure.get() == null, "Updated deadline allows a subsequent request to succeed");
+        } finally { coordinator.dispose(); }
+    }
+
     @Test void checkStartupRecovery() throws Exception {
         AtomicInteger starts = new AtomicInteger();
         AtomicBoolean onEdt = new AtomicBoolean();
