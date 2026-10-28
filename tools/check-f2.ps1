@@ -1,4 +1,4 @@
-param([string]$IdeHome, [string]$JdkHome = $env:JAVA_HOME)
+param([string]$IdeHome, [string]$JdkHome = $env:JAVA_HOME, [switch]$Offline)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 if (!$JdkHome) { throw 'Set JAVA_HOME to JDK 21, or pass -JdkHome.' }
@@ -10,6 +10,12 @@ if (!$IdeHome) {
 $checkOutput = Join-Path $projectRoot 'build\reports\f2-check\classes'
 New-Item -ItemType Directory -Force $checkOutput | Out-Null
 $classpath = (Get-ChildItem (Join-Path $IdeHome 'lib') -Filter '*.jar' | ForEach-Object FullName) -join ';'
+# Live F2 now consumes member-three dependencies; ask Gradle for the pinned classpath.
+$gradleArgs = @('-p', $projectRoot, 'exportCheckClasspath', '--console=plain')
+if ($Offline) { $gradleArgs += '--offline' }
+& (Join-Path $projectRoot 'gradlew.bat') @gradleArgs
+if ($LASTEXITCODE -ne 0) { throw 'Unable to export Gradle classpath.' }
+$classpath += ';' + (Get-Content (Join-Path $projectRoot 'build/ui-check-classpath.txt') -Raw).Trim()
 $sourceRoot = Join-Path $projectRoot 'src\main\java'
 $sources = @(Get-ChildItem (Join-Path $sourceRoot 'edu\teamc\courseaiassistant\modification') -Filter '*.java' | ForEach-Object FullName)
 & (Join-Path $JdkHome 'bin\javac.exe') -encoding UTF-8 -cp $classpath -sourcepath $sourceRoot -d $checkOutput @sources (Join-Path $PSScriptRoot 'F2ContractCheck.java')

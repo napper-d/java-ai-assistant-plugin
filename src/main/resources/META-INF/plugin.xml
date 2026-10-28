@@ -39,6 +39,10 @@
     </extensions>
 
     <actions>
+        <action id="CourseAiAssistant.LiveModify" class="edu.teamc.courseaiassistant.modification.LiveModifyAction"
+                text="Modify Java Code with LLM..." description="Generate and review a change using explicit model configuration">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
         <action id="CourseAiAssistant.SampleModify" class="edu.teamc.courseaiassistant.modification.SampleModifyAction"
                 text="F2: Review Fixed Sample Change (No AI)">
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>

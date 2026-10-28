@@ -26,10 +26,10 @@ public final class ValidatedModificationService implements ModificationService {
                 if (relative.isAbsolute()) throw new IllegalArgumentException("Select a file inside this project.");
                 Path target = base.resolve(relative).normalize().toRealPath();
                 if (!target.startsWith(base)) throw new IllegalArgumentException("Target leaves the project.");
-                var generation = generator.generate(request).orTimeout(60, TimeUnit.SECONDS);
+                var generation = generator.generate(request);
                 result.whenComplete((v, e) -> { if (result.isCancelled()) generation.cancel(true); });
                 generation.whenComplete((proposal, error) -> {
-                    if (error != null) { fail(result, request, "Unable to generate a proposal."); return; }
+                    if (error != null) { result.completeExceptionally(GenerationFailures.toFailure(request.requestId(), error)); return; }
                     try { new ProposalValidator().validate(request, proposal); }
                     catch (RuntimeException ex) { fail(result, request, ex.getMessage()); return; }
                     ApplicationManager.getApplication().invokeLater(() -> {
@@ -42,7 +42,14 @@ public final class ValidatedModificationService implements ModificationService {
                             if (document == null || document.getModificationStamp() != request.codeContext().getDocumentModificationStamp()
                                     || !document.getText().equals(request.originalFileText())) throw new IllegalStateException("File changed. Please regenerate.");
                             long diskStamp = file.getModificationStamp();
-                            boolean approved = new DiffReviewDialog(project, proposal).showAndGet();
+                            var dialog = new DiffReviewDialog(project, proposal);
+                            var cancellation = new javax.swing.Timer(100, event -> {
+                                if (result.isDone() || project.isDisposed()) dialog.close(com.intellij.openapi.ui.DialogWrapper.CANCEL_EXIT_CODE);
+                            });
+                            boolean approved;
+                            cancellation.start();
+                            try { approved = dialog.showAndGet(); }
+                            finally { cancellation.stop(); }
                             if (result.isDone()) return;
                             if (approved) {
                                 file.refresh(false, false);
