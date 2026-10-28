@@ -16,18 +16,12 @@ public final class LocalKnowledgeSearch implements KnowledgeSearch, AutoCloseabl
     private final RagConfig config;
     private final EmbeddingClient embeddings;
     private final LocalIndexStore storage;
-    private final FollowUpQueryPlanner planner;
     private final RagTaskRunner tasks = new RagTaskRunner();
     private volatile LocalIndexStore.Snapshot snapshot;
     private final Object loadLock = new Object();
 
     public LocalKnowledgeSearch(RagConfig config, EmbeddingClient embeddings) {
-        this(config, embeddings, new ReferenceQueryPlanner(config.retrieval()));
-    }
-
-    public LocalKnowledgeSearch(RagConfig config, EmbeddingClient embeddings, FollowUpQueryPlanner planner) {
         this.config = Objects.requireNonNull(config); this.embeddings = Objects.requireNonNull(embeddings);
-        this.planner = Objects.requireNonNull(planner);
         storage = new LocalIndexStore(config);
     }
 
@@ -53,8 +47,7 @@ public final class LocalKnowledgeSearch implements KnowledgeSearch, AutoCloseabl
             } catch (IllegalArgumentException error) {
                 throw new RagException(RagException.Reason.EMBEDDING_ERROR, "Query embedding does not match the course index.", false);
             }
-            return MultiStepRetrieval.search(query.strip(), vectors.getFirst(), maxResults, config, current,
-                    embeddings, planner, context);
+            return current.search(vectors.getFirst(), config.minScore(), maxResults, context);
         });
     }
 

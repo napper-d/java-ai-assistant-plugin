@@ -9,7 +9,6 @@ build/
 ### Local configuration and credentials ###
 .env
 .env.*
-!.env.example
 local.properties
 
 ### Local course materials and generated RAG indexes ###

@@ -31,7 +31,8 @@ class KnowledgeBasePanelTest {
             });
             var register = fixture.next("register"); assertEquals(List.of(FILE), register.paths);
             edt(() -> { assertFalse(fixture.button("addMaterials").isEnabled()); assertFalse(fixture.button("ragSettings").isEnabled()); });
-            complete(register, snapshot(List.of(DOCUMENT), NO_INDEX, false));
+            complete(register, new MaterialRegistrationResult(snapshot(List.of(DOCUMENT), NO_INDEX, false), 1, List.of()));
+            assertTrue(fixture.notices.isEmpty());
             edt(() -> {
                 assertEquals(1, fixture.table().getRowCount());
                 assertEquals("Missing", fixture.table().getValueAt(0, 2));
@@ -42,6 +43,56 @@ class KnowledgeBasePanelTest {
             var remove = fixture.next("remove"); assertEquals(List.of(FILE), remove.paths);
             complete(remove, snapshot(List.of(), NEEDS_REBUILD, false));
             edt(() -> { assertEquals(0, fixture.table().getRowCount()); assertTrue(fixture.text("libraryFeedback").contains("Original files")); });
+        }
+    }
+
+    @Test void repeatedFilesShowOneNoticeWithoutReportingNewRegistrations() throws Exception {
+        try (Fixture fixture = new Fixture()) {
+            complete(fixture.next("refresh"), snapshot(List.of(DOCUMENT), AVAILABLE, true));
+            edt(() -> fixture.button("addMaterials").doClick(0));
+            complete(fixture.next("register"), new MaterialRegistrationResult(
+                    snapshot(List.of(DOCUMENT), AVAILABLE, true), 0, List.of(FILE)));
+            String notice = fixture.notices.poll(5, TimeUnit.SECONDS);
+            assertNotNull(notice); assertTrue(notice.contains("No files were added"));
+            assertTrue(notice.contains(FILE.toString())); assertTrue(fixture.notices.isEmpty());
+            edt(() -> {
+                assertEquals(1, fixture.table().getRowCount());
+                assertEquals("Saved index available", fixture.text("libraryStatus"));
+                assertTrue(fixture.text("libraryFeedback").contains("already registered"));
+                assertFalse(fixture.text("libraryFeedback").contains("Rebuild"));
+            });
+        }
+    }
+
+    @Test void mixedSelectionAddsNewFilesAndListsOnlyDuplicatesInTheNotice() throws Exception {
+        Path other = FILE.resolveSibling("other-lecture.pdf");
+        var otherDocument = new RegisteredDocument("other", "other-lecture.pdf", other, Availability.AVAILABLE);
+        try (Fixture fixture = new Fixture(List.of(FILE, other))) {
+            complete(fixture.next("refresh"), snapshot(List.of(DOCUMENT), AVAILABLE, true));
+            edt(() -> fixture.button("addMaterials").doClick(0));
+            var registration = fixture.next("register"); assertEquals(List.of(FILE, other), registration.paths);
+            complete(registration, new MaterialRegistrationResult(
+                    snapshot(List.of(DOCUMENT, otherDocument), NEEDS_REBUILD, true), 1, List.of(FILE)));
+            String notice = fixture.notices.poll(5, TimeUnit.SECONDS);
+            assertNotNull(notice); assertTrue(notice.contains("1 new file registered"));
+            assertTrue(notice.contains(FILE.toString())); assertFalse(notice.contains(other.toString()));
+            edt(() -> { assertEquals(2, fixture.table().getRowCount()); assertTrue(fixture.button("addMaterials").isEnabled()); });
+        }
+    }
+
+    @Test void cancelledRegistrationCannotShowALateDuplicateNotice() throws Exception {
+        try (Fixture fixture = new Fixture()) {
+            complete(fixture.next("refresh"), snapshot(List.of(DOCUMENT), AVAILABLE, true));
+            edt(() -> fixture.button("addMaterials").doClick(0));
+            var registration = fixture.next("register");
+            edt(() -> {
+                registration.future.complete(new MaterialRegistrationResult(
+                        snapshot(List.of(DOCUMENT), AVAILABLE, true), 0, List.of(FILE)));
+                fixture.button("cancelLibraryTask").doClick(0);
+            });
+            complete(fixture.next("refresh"), snapshot(List.of(DOCUMENT), AVAILABLE, true));
+            assertTrue(fixture.notices.isEmpty());
+            edt(() -> assertTrue(fixture.text("libraryFeedback").startsWith("Cancelled")));
         }
     }
 
@@ -154,19 +205,20 @@ class KnowledgeBasePanelTest {
         return new KnowledgeBaseSnapshot(documents, state, state == NO_INDEX ? 0 : 1, state == NO_INDEX ? 0 : 4,
                 configured, "Saved file contents are not checked until an explicit rebuild.");
     }
-    private record Call(String kind, List<Path> paths, CompletableFuture<KnowledgeBaseSnapshot> future) {}
+    private record Call(String kind, List<Path> paths, CompletableFuture<Object> future) {}
     private static final class Backend implements KnowledgeBaseOperations {
         final BlockingQueue<Call> calls = new LinkedBlockingQueue<>();
         final AtomicReference<Runnable> listener = new AtomicReference<>();
         boolean stickyNext;
-        private CompletableFuture<KnowledgeBaseSnapshot> call(String name, List<Path> paths) {
-            CompletableFuture<KnowledgeBaseSnapshot> future = stickyNext ? new CompletableFuture<>() {
+        @SuppressWarnings("unchecked")
+        private <T> CompletableFuture<T> call(String name, List<Path> paths) {
+            CompletableFuture<Object> future = stickyNext ? new CompletableFuture<>() {
                 @Override public boolean cancel(boolean interrupt) { return false; }
             } : new CompletableFuture<>();
-            stickyNext = false; calls.add(new Call(name, paths, future)); return future;
+            stickyNext = false; calls.add(new Call(name, paths, future)); return (CompletableFuture<T>) (CompletableFuture<?>) future;
         }
         @Override public CompletableFuture<KnowledgeBaseSnapshot> refreshLibrary() { return call("refresh", List.of()); }
-        @Override public CompletableFuture<KnowledgeBaseSnapshot> registerMaterials(List<Path> paths) { return call("register", paths); }
+        @Override public CompletableFuture<MaterialRegistrationResult> registerMaterials(List<Path> paths) { return call("register", paths); }
         @Override public CompletableFuture<KnowledgeBaseSnapshot> unregisterMaterials(List<Path> paths) { return call("remove", paths); }
         @Override public CompletableFuture<KnowledgeBaseSnapshot> rebuildLibrary() { return call("rebuild", List.of()); }
         @Override public CompletableFuture<List<edu.teamc.courseaiassistant.model.KnowledgeChunk>> search(String query, int maxResults) {
@@ -177,8 +229,14 @@ class KnowledgeBasePanelTest {
     private static final class Fixture implements AutoCloseable {
         final Backend backend = new Backend();
         final AtomicInteger settingsOpened = new AtomicInteger();
+        final BlockingQueue<String> notices = new LinkedBlockingQueue<>();
         KnowledgeBasePanel panel;
-        Fixture() throws Exception { edt(() -> panel = new KnowledgeBasePanel(backend, () -> List.of(FILE), settingsOpened::incrementAndGet)); }
+        Fixture() throws Exception { this(List.of(FILE)); }
+        Fixture(List<Path> selected) throws Exception {
+            edt(() -> panel = new KnowledgeBasePanel(backend, () -> selected, settingsOpened::incrementAndGet, message -> {
+                assertTrue(SwingUtilities.isEventDispatchThread()); notices.add(message);
+            }));
+        }
         Call next(String expected) throws Exception {
             Call call = backend.calls.poll(5, TimeUnit.SECONDS); assertNotNull(call); assertEquals(expected, call.kind); return call;
         }
@@ -187,7 +245,7 @@ class KnowledgeBasePanelTest {
         String text(String name) { return ((JTextArea) named(panel, name)).getText(); }
         @Override public void close() throws Exception { edt(() -> panel.dispose()); }
     }
-    private static void complete(Call call, KnowledgeBaseSnapshot state) throws Exception { call.future.complete(state); flush(); }
+    private static void complete(Call call, Object state) throws Exception { call.future.complete(state); flush(); }
     private static void flush() throws Exception { edt(() -> {}); }
     private static void edt(Runnable action) throws Exception { SwingUtilities.invokeAndWait(action); }
     private static Component named(Component parent, String name) {

@@ -52,7 +52,7 @@ public final class ProjectRagService implements Disposable, KnowledgeBaseOperati
     @Override public CompletableFuture<KnowledgeBaseSnapshot> refreshLibrary() {
         return libraryChange(invoke(current -> current.library.refreshLibrary()));
     }
-    @Override public CompletableFuture<KnowledgeBaseSnapshot> registerMaterials(List<Path> paths) {
+    @Override public CompletableFuture<MaterialRegistrationResult> registerMaterials(List<Path> paths) {
         return libraryChange(invoke(current -> current.library.registerMaterials(paths)));
     }
     @Override public CompletableFuture<KnowledgeBaseSnapshot> unregisterMaterials(List<Path> paths) {

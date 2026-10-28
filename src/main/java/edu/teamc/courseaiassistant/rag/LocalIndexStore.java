@@ -28,7 +28,6 @@ public final class LocalIndexStore {
     public static final class Snapshot {
         private final List<Entry> entries;
         private final List<InMemoryEmbeddingStore<TextSegment>> partitions;
-        private final Map<String, Entry> byId;
         private final int dimensions;
         private final String generation;
 
@@ -49,9 +48,6 @@ public final class LocalIndexStore {
                 stores.add(store);
             }
             partitions = List.copyOf(stores);
-            Map<String, Entry> lookup = new HashMap<>();
-            for (Entry entry : entries) lookup.put(entry.chunk.chunkId(), entry);
-            byId = Map.copyOf(lookup);
         }
         public int chunkCount() { return entries.size(); }
         public int dimensions() { return dimensions; }
@@ -63,11 +59,6 @@ public final class LocalIndexStore {
         }
 
         List<KnowledgeChunk> search(float[] query, double minScore, int maximum, RagTaskRunner.Context context) {
-            return search(query, minScore, maximum, null, context);
-        }
-
-        List<KnowledgeChunk> search(float[] query, double minScore, int maximum, String documentId,
-                                    RagTaskRunner.Context context) {
             RagFiles.validateVector(query, dimensions);
             Comparator<KnowledgeChunk> bestFirst = Comparator.comparingDouble(KnowledgeChunk::getScore).reversed()
                     .thenComparing(KnowledgeChunk::getChunkId);
@@ -79,7 +70,6 @@ public final class LocalIndexStore {
                 for (var match : matches) {
                     context.check();
                     DocumentChunk chunk = DocumentChunk.fromSegment(match.embedded());
-                    if (documentId != null && !documentId.equals(chunk.documentId())) continue;
                     double score = Math.clamp(match.score(), 0, 1);
                     if (!Double.isFinite(score)) throw new IllegalArgumentException("Invalid retrieval score.");
                     KnowledgeChunk value = new KnowledgeChunk(chunk.chunkId(), chunk.source(), chunk.text(), score);
@@ -90,38 +80,6 @@ public final class LocalIndexStore {
             return best.stream().sorted(bestFirst).toList();
         }
 
-        FollowUpQueryPlanner.Passage passage(KnowledgeChunk chunk) {
-            return new FollowUpQueryPlanner.Passage(byId.get(chunk.getChunkId()).chunk, chunk.getScore());
-        }
-
-        KnowledgeChunk rescore(KnowledgeChunk chunk, float[] question) {
-            Entry entry = byId.get(chunk.getChunkId());
-            return scored(entry, question);
-        }
-
-        List<KnowledgeChunk> definitions(String reference, String documentId, float[] question,
-                                         int maximum, RagTaskRunner.Context context) {
-            List<KnowledgeChunk> found = new ArrayList<>();
-            for (Entry entry : entries) {
-                context.check();
-                if (documentId != null && !documentId.equals(entry.chunk.documentId())) continue;
-                if (ReferenceQueryPlanner.defines(entry.chunk.text(), reference)) found.add(scored(entry, question));
-            }
-            return found.stream().sorted(Comparator.comparingDouble(KnowledgeChunk::getScore).reversed()
-                    .thenComparing(KnowledgeChunk::getChunkId)).limit(maximum).toList();
-        }
-
-        private KnowledgeChunk scored(Entry entry, float[] question) {
-            double dot = 0, questionNorm = 0, entryNorm = 0;
-            for (int i = 0; i < question.length; i++) {
-                dot += (double) question[i] * entry.vector[i];
-                questionNorm += (double) question[i] * question[i];
-                entryNorm += (double) entry.vector[i] * entry.vector[i];
-            }
-            double score = Math.clamp((dot / Math.sqrt(questionNorm * entryNorm) + 1) / 2, 0, 1);
-            if (!Double.isFinite(score)) throw new IllegalArgumentException("Invalid retrieval score.");
-            return new KnowledgeChunk(entry.chunk.chunkId(), entry.chunk.source(), entry.chunk.text(), score);
-        }
     }
 
     public LocalIndexStore(RagConfig config) { this.config = Objects.requireNonNull(config); }

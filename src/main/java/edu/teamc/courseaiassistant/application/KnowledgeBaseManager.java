@@ -37,15 +37,22 @@ final class KnowledgeBaseManager implements AutoCloseable {
         return submit(context -> inspect(context, importer.listRegisteredDocuments()));
     }
 
-    public CompletableFuture<KnowledgeBaseSnapshot> registerMaterials(List<Path> paths) {
+    public CompletableFuture<MaterialRegistrationResult> registerMaterials(List<Path> paths) {
         if (paths == null || paths.isEmpty() || paths.stream().anyMatch(Objects::isNull)) return invalidSelection();
         List<Path> captured = List.copyOf(paths);
         return submit(context -> {
             // Imports are intentionally not transactional: earlier successful registrations may remain on failure.
+            boolean previouslyDirty = dirty, previouslyReloadPending = reloadPending;
             dirty = true;
             reloadPending = false;
-            context.await(indexer.importFiles(captured));
-            return inspect(context, importer.listRegisteredDocuments());
+            var imported = context.await(indexer.importFiles(captured));
+            int added = (int) imported.stream().filter(document -> !document.reused()).count();
+            if (added == 0) {
+                dirty = previouslyDirty; reloadPending = previouslyReloadPending;
+            }
+            var duplicates = imported.stream().filter(DocumentImporter.ImportedDocument::reused)
+                    .map(DocumentImporter.ImportedDocument::path).distinct().toList();
+            return new MaterialRegistrationResult(inspect(context, importer.listRegisteredDocuments()), added, duplicates);
         });
     }
 

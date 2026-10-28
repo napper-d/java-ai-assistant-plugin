@@ -5,6 +5,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.fileChooser.FileChooser;
 import com.intellij.openapi.fileChooser.FileChooserDescriptor;
 import com.intellij.openapi.options.ShowSettingsUtil;
+import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowFactory;
 import com.intellij.ui.content.Content;
@@ -55,7 +56,8 @@ public final class CourseAiToolWindowFactory implements ToolWindowFactory, DumbA
                         return extension != null && java.util.Set.of("pdf", "pptx").contains(extension.toLowerCase(Locale.ROOT));
                     });
             return Arrays.stream(FileChooser.chooseFiles(descriptor, project, null)).map(file -> file.toNioPath()).toList();
-        }, () -> ShowSettingsUtil.getInstance().showSettingsDialog(project, RagSettingsConfigurable.class));
+        }, () -> ShowSettingsUtil.getInstance().showSettingsDialog(project, RagSettingsConfigurable.class),
+                message -> Messages.showInfoMessage(project, message, "Files already registered"));
         RetrievalPreviewPanel preview = new RetrievalPreviewPanel(project.getService(ProjectRagService.class),
                 () -> ShowSettingsUtil.getInstance().showSettingsDialog(project, RagSettingsConfigurable.class));
         JTabbedPane sections = new JTabbedPane();

@@ -25,16 +25,13 @@ final class RagTaskRunner implements AutoCloseable {
         }
         synchronized void check() { if (cancelled) throw new CancellationException(); RagFiles.checkCancelled(); }
         <T> T await(CompletableFuture<T> future) {
-            return await(future, RagException.Reason.EMBEDDING_ERROR, "Unable to generate course embeddings.");
-        }
-        <T> T await(CompletableFuture<T> future, RagException.Reason reason, String safeMessage) {
             synchronized (this) { child = future; if (cancelled) future.cancel(true); }
             try { return future.get(); }
             catch (InterruptedException error) { future.cancel(true); Thread.currentThread().interrupt(); throw new CancellationException(); }
             catch (ExecutionException error) {
                 if (error.getCause() instanceof RagException rag) throw rag;
                 if (error.getCause() instanceof CancellationException cancelled) throw cancelled;
-                throw new RagException(reason, safeMessage, true);
+                throw new RagException(RagException.Reason.EMBEDDING_ERROR, "Unable to generate course embeddings.", true);
             } finally { synchronized (this) { if (child == future) child = null; } }
         }
     }

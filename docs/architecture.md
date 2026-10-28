@@ -7,9 +7,8 @@ questions) and F2 (instruction-driven changes reviewed in the built-in Diff View
 before application). Stages 2–4 implement the Java chat Tool Window, selected-code
 snapshots and asynchronous request coordination. The default adapter is still a
 visibly marked MockChatService. The RAG package is available as a standalone adapter
-with original-path PDF/PPTX registration, online embeddings, persisted local search
-and bounded multi-step retrieval. Query planning is pluggable; the default expands
-explicit identifiers and the chat owner may supply model-based planning. Real-provider
+with original-path PDF/PPTX registration, online embeddings and persisted local
+vector search filtered by the configured similarity threshold. Real-provider
 acceptance, chat integration, LLM and modification services remain pending.
 The R1-R3 GUI adaptation provides project settings and a Course materials tab.
 ProjectRagService owns each RAG session; KnowledgeBaseManager serializes material

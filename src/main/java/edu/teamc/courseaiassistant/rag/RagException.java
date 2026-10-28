@@ -3,7 +3,7 @@ package edu.teamc.courseaiassistant.rag;
 /** Safe retrieval failure. The chat adapter supplies its own request ID when mapping this to ServiceFailure. */
 public final class RagException extends RuntimeException {
     public enum Reason { INVALID_INPUT, CONFIGURATION, DOCUMENT_ERROR, INDEX_UNAVAILABLE,
-        INDEX_INCOMPATIBLE, INDEX_CORRUPT, STORAGE_ERROR, EMBEDDING_ERROR, NETWORK_ERROR, TIMEOUT, RETRIEVAL_ERROR, CLOSED }
+        INDEX_INCOMPATIBLE, INDEX_CORRUPT, STORAGE_ERROR, EMBEDDING_ERROR, NETWORK_ERROR, TIMEOUT, CLOSED }
 
     private final Reason reason;
     private final boolean retryable;

@@ -7,7 +7,7 @@ import org.jetbrains.annotations.NotNull;
 import java.nio.file.Path;
 import java.time.Duration;
 
-/** Project-local, non-secret settings. CLI environment configuration is deliberately independent. */
+/** Project-local, non-secret settings; credentials are stored separately in PasswordSafe. */
 @Service(Service.Level.PROJECT)
 @State(name = "CourseAiRagSettings", storages = @Storage(StoragePathMacros.WORKSPACE_FILE))
 public final class RagSettings implements PersistentStateComponent<RagSettings.State> {
@@ -19,13 +19,10 @@ public final class RagSettings implements PersistentStateComponent<RagSettings.S
         public int chunkCharacters = 800;
         public int overlapCharacters = 120;
         public int batchSize = 16;
-        public double minScore = .75;
+        public double minScore = .70;
         public boolean includeSlideNotes;
         public String documentPrefix = "";
         public String queryPrefix = "";
-        public boolean multiStepEnabled = true;
-        public int maxRounds = 2;
-        public int maxQueries = 8;
 
         public State copy() {
             State copy = new State();
@@ -34,7 +31,6 @@ public final class RagSettings implements PersistentStateComponent<RagSettings.S
             copy.overlapCharacters = overlapCharacters; copy.batchSize = batchSize;
             copy.minScore = minScore; copy.includeSlideNotes = includeSlideNotes;
             copy.documentPrefix = documentPrefix; copy.queryPrefix = queryPrefix;
-            copy.multiStepEnabled = multiStepEnabled; copy.maxRounds = maxRounds; copy.maxQueries = maxQueries;
             return copy;
         }
 
@@ -42,8 +38,7 @@ public final class RagSettings implements PersistentStateComponent<RagSettings.S
             return new RagConfig(projectRoot, Path.of(".course-ai"), "default", chunkCharacters,
                     overlapCharacters, batchSize, minScore, includeSlideNotes,
                     new RagConfig.EmbeddingSettings("openai-compatible", baseUrl, model, apiKey,
-                            dimensions, Duration.ofMillis(timeoutMillis), documentPrefix, queryPrefix),
-                    new RagConfig.RetrievalSettings(multiStepEnabled, maxRounds, maxQueries, null));
+                            dimensions, Duration.ofMillis(timeoutMillis), documentPrefix, queryPrefix));
         }
 
         /** Incomplete settings are allowed, but every supplied value must be valid. */

@@ -1,6 +1,6 @@
 # 成员 2 任务：实现课程资料的本地 RAG 检索
 
-状态：原路径登记、边界切分和通用多步检索已实现，48 项 RAG 自动测试及插件打包/配置/结构检查通过；原有 Swing/11 项请求生命周期检查此前已通过。阈值校准和成员 1/3 接线仍待完成，真实供应商/课件的完整验收需补充记录。使用方法见 [rag-search.md](rag-search.md)。
+状态：原路径登记、边界切分和本地向量检索已实现，自动验证覆盖 RAG、项目设置、资料管理和检索预览。阈值校准和真实聊天接线仍待完成，真实供应商/课件的完整验收需补充记录。使用方法见 [rag-search.md](rag-search.md)。
 
 ## 交付目标
 
@@ -25,7 +25,7 @@ LangChain4j 的内存向量库支持保存/恢复向量及关联文本，参见 
 - [ ] 拿到真实 PDF/PPTX 样例，确认主要语言、文本可提取性、表格和备注使用范围。
 - [ ] 选择实际 Embedding 提供方：确定接口协议、模型标识/版本、向量维度、请求限制，以及查询与文档是否需要不同的输入前缀/任务类型。
 - [ ] 与成员 3 约定分数含义、相关性阈值、引用标识及检索失败的转换方式。
-- [ ] 确定课程知识库的标识。索引目录按用户要求优先放在当前打开的工程内，建议默认 `.course-ai/`，并允许配置绝对路径。
+- [x] 插件使用当前打开项目下的 `.course-ai/` 数据目录和 `default` 课程库。
 
 Embedding 提供方尚未选择时，可以用测试替身验证管线；正式交付必须运行真实 Embedding 的建库和查询，不能用随机向量或固定回答充当检索实现。
 
@@ -36,7 +36,7 @@ Embedding 提供方尚未选择时，可以用测试替身验证管线；正式�
 | 文件 | 职责 |
 | --- | --- |
 | `RagConfig.java` | 知识库 ID、输入/索引目录、切分参数、阈值、Embedding 配置、请求超时 |
-| `RagConfigLoader.java` | 读取进程环境和显式指定目录的开发 `.env`，解析相对于工程根目录的数据路径 |
+| `settings/RagSettings.java`、`settings/RagCredentials.java` | 项目配置持久化与 PasswordSafe 密钥存取，由 `ProjectRagService` 组装核心服务 |
 | `DocumentSection.java` | 解析后的页/章节文本及来源位置 |
 | `DocumentChunk.java` | 待建库片段：稳定 ID、原文和 `SourceReference` |
 | `DocumentImporter.java` | 登记原路径、持久化清单、移除登记；建库直接读取原文件，不复制课件 |
@@ -44,14 +44,11 @@ Embedding 提供方尚未选择时，可以用测试替身验证管线；正式�
 | `DocumentLoader.java` | 按格式分派解析，PDF 用 PDFBox 按页提取，PPTX 用 POI XSLF 按幻灯片提取 |
 | `ChunkSplitter.java` | 页/幻灯片内按段落→句子→词→码点逐级切分，完整单元重叠与来源继承 |
 | `EmbeddingClient.java` | 包装所选模型适配器，统一文档/查询生成模式、异常与取消能力 |
-| `EmbeddingProviderFactory.java` | 根据配置创建实际在线模型适配器；提供方选定后引入相应模块 |
+| `HttpEmbeddingClient.java` | OpenAI-compatible 在线 Embedding 适配器，由项目会话惰性创建并共享 |
 | `LocalIndexStore.java` | 包装 LangChain4j 内存向量库的 JSON 快照保存/加载、元数据与向量校验 |
 | `CourseIndexer.java` | 编排加载 → 切分 → Embedding → 保存，提供显式建库/重建入口 |
 | `LocalKnowledgeSearch.java` | 实现 `KnowledgeSearch`，后台执行查询向量生成、向量库检索和共享模型转换 |
 | `RagException.java` | 表达输入错误、索引不可用/不兼容、解析失败、Embedding 失败等原因 |
-| `FollowUpQueryPlanner.java` | 通用异步后续查询规划接口，支持编号或自然语言子查询及来源关联 |
-| `ReferenceQueryPlanner.java` | 可配置编号识别与定义补查策略，适用于多种文档编号 |
-| `MultiStepRetrieval.java` | 轮数/查询预算、去重、文档范围、父证据保留、后续语义查询和取消传播 |
 
 采用框架后无需重复实现向量存储数据结构和余弦检索。仍需实现配置、位置保留、导入、快照发布、共享模型适配及生命周期管理。框架具体模块在提供方选定并验证依赖后确定。
 
@@ -65,10 +62,9 @@ Embedding 提供方尚未选择时，可以用测试替身验证管线；正式�
 - [x] 定义稳定标识规则：课程 ID 和规范化原路径决定文档 ID，同一路径内容更新后保持文档 ID；片段 ID 包含位置、正文和切分配置。
 - [x] 文档名称用于显示，独立文档标识用于区分身份；保存内容哈希用于检测资料变化。
 - [x] 核心 RAG 类通过构造器接收 `Path`、配置和 Embedding 客户端，保持可脱离 Swing/IDEA 运行。
-- [x] API 密钥从外部配置注入；配置示例只包含占位值。
-- [x] 开发期显式加载 `.env`，进程环境变量优先；使用 [dotenv-java](https://github.com/cdimascio/dotenv-java)，通过 `dotenv.get` 读取。
-- [ ] 安装给使用者后，由配置界面/适配层将密钥保存到 IntelliJ [PasswordSafe](https://plugins.jetbrains.com/docs/intellij/persisting-sensitive-data.html)；不把 `.env` 打进插件包。此配置 UI 与成员 1 对接。
-- [ ] 目录默认相对于 IDEA 当前打开的工程根目录解析；IDE 适配层传入 `Project.getBasePath()` 对应路径，核心层不依赖 `user.dir`。没有工程根目录时要求显式配置数据目录。
+- [x] API 地址和模型通过插件设置页配置，密钥从项目隔离的 PasswordSafe 条目注入。
+- [x] 配置界面/适配层将密钥保存到 IntelliJ [PasswordSafe](https://plugins.jetbrains.com/docs/intellij/persisting-sensitive-data.html)，普通项目状态不保存密钥。
+- [x] 数据目录相对于 IDEA 当前打开的工程根目录解析；IDE 适配层传入 `Project.getBasePath()` 对应路径，核心层不依赖 `user.dir`。没有本地工程根目录时明确报错。
 
 验收：可以构造一个有真实来源位置的片段；非法配置被清楚拒绝。
 
@@ -108,7 +104,7 @@ PDF 解析可使用 Apache PDFBox；依赖版本在实施时锁定并通过本�
 - [x] 新快照使用独立文件名，完整写入后原子替换 manifest；失败保留旧版本。
 - [x] 跨进程文件锁串行重建，检索使用完整的只读快照。
 - [x] `CourseIndexer.rebuild` 显式全量重建，查询复用已保存的文档向量。
-- [x] 提供 Gradle `ragImport`、`ragIndex`、`ragSearch` 和配置示例。
+- [x] 通过插件 Course materials 提供资料登记、移除、索引重建和检索预览入口。
 
 建议存储布局：
 
@@ -123,7 +119,7 @@ PDF 解析可使用 Apache PDFBox；依赖版本在实施时锁定并通过本�
             store-<generation-id>.json
 ```
 
-`.course-ai` 是建议默认数据目录，可通过配置改为绝对路径，以便多个工程共用课程知识库。这里的“工程根目录”是插件使用者打开的工程；开发/命令行测试可显式指定当前插件仓库根目录。保存目录由解析后的路径决定，不依赖 `runIde` 的进程工作目录。生成目录加入对应工程的 Git 忽略规则。
+插件数据固定保存到使用者当前打开工程下的 `.course-ai`，课程库 ID 为 `default`。核心模块通过构造器接收解析后的路径，不依赖 `runIde` 的进程工作目录。生成目录加入对应工程的 Git 忽略规则。
 
 验收：建库后重启程序，直接加载已有向量仍可检索；模拟保存失败后，旧索引仍可使用。
 
@@ -164,7 +160,7 @@ PDF 解析可使用 Apache PDFBox；依赖版本在实施时锁定并通过本�
 - [x] `tools/check-chat-ui.ps1` 改为复用 Gradle 导出的依赖 classpath，并增加 `-Offline`。
 - [x] 按需引入并锁定依赖，测试和插件打包/结构检查通过。
 - [ ] 在真实 IDEA 窗口中验收依赖加载和最终接线。
-- [x] 多步检索接入后的 48 项模块测试及插件打包/配置/结构检查通过；此前 UI/lifecycle 检查通过，结果记录在使用文档。
+- [x] 模块测试覆盖单次查询向量生成、相似度过滤和结果数量限制；构建及结构检查结果记录在使用文档。
 
 ```powershell
 .\gradlew.bat test buildPlugin verifyPluginProjectConfiguration verifyPluginStructure
@@ -175,21 +171,11 @@ PDF 解析可使用 Apache PDFBox；依赖版本在实施时锁定并通过本�
 
 ## T8：交接文档
 
-- [x] 新增 `docs/rag-search.md`，说明配置、命令、数据布局、分数、异常和资源释放。
-- [x] 提供创建和调用 `LocalKnowledgeSearch` 的 Java 示例及资源归属说明，供成员 3 审阅。
+- [x] 新增 `docs/rag-search.md`，说明插件配置、界面操作、数据布局、分数、异常和资源释放。
+- [x] 提供通过 `ProjectRagService` 调用检索的 Java 示例及资源归属说明，供成员 3 审阅。
 - [ ] 提供带期望来源的课程问题及无关问题清单，用于人工核对召回和阈值；用分开的调参与验证样例记录结果。
 - [ ] 与成员 1 对接索引路径解析和服务构造；由其完成最终 Tool Window 接线。
 - [x] 更新共享状态文档，明确 RAG 模块已实现、Tool Window 仍使用 Mock。
-
-## T9：多步检索
-
-- [x] 通用异步规划接口与执行框架，保留原有 `KnowledgeSearch` 和数据契约。
-- [x] 默认支持可配置编号引用补查，明确区分内置规则和模型驱动规划的能力范围。
-- [x] 同文档范围、完整编号匹配、循环去重、轮数/总查询预算、严格结果数量和父证据保留。
-- [x] 自然语言后续查询可通过自定义规划器接入，取消传播到规划器/后续 Embedding future。
-- [x] 搜索时复用持久化索引，原问题分数不人为抬高，多步配置不要求重新建库。
-- [x] 多步测试覆盖次级分工证据、中文编号、跨页/章节/非 F 编号、多轮和循环、文档隔离、结果预算、通用自然语言规划接口及取消/错误处理。
-- [ ] 真实课件上的组别问题、定义覆盖程度、结果预算和规划策略评测，与成员 3 联调。
 
 ## 建议开发顺序
 

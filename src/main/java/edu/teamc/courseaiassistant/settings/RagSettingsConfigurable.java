@@ -24,7 +24,6 @@ public final class RagSettingsConfigurable implements SearchableConfigurable {
     private JPasswordField password;
     private JCheckBox removePassword;
     private JCheckBox notes;
-    private JCheckBox multiStep;
 
     public RagSettingsConfigurable(Project project) { this.project = project; }
 
@@ -63,10 +62,6 @@ public final class RagSettingsConfigurable implements SearchableConfigurable {
         addRow(advanced, "", notes);
         field(advanced, "documentPrefix", "Document input prefix");
         field(advanced, "queryPrefix", "Query input prefix");
-        multiStep = new JCheckBox("Enable multi-step reference retrieval");
-        addRow(advanced, "", multiStep);
-        field(advanced, "maxRounds", "Maximum follow-up rounds (1-4)");
-        field(advanced, "maxQueries", "Follow-up query budget (1-16)");
         advanced.setVisible(false);
         JCheckBox showAdvanced = new JCheckBox("Advanced settings");
         showAdvanced.addActionListener(event -> {
@@ -126,8 +121,6 @@ public final class RagSettingsConfigurable implements SearchableConfigurable {
         // Prefix whitespace is meaningful to providers and must survive a settings round-trip.
         state.documentPrefix = fields.get("documentPrefix").getText();
         state.queryPrefix = fields.get("queryPrefix").getText();
-        state.multiStepEnabled = multiStep.isSelected();
-        state.maxRounds = number("maxRounds"); state.maxQueries = number("maxQueries");
         return state;
     }
 
@@ -187,15 +180,12 @@ public final class RagSettingsConfigurable implements SearchableConfigurable {
         notes.setSelected(state.includeSlideNotes);
         fields.get("documentPrefix").setText(state.documentPrefix);
         fields.get("queryPrefix").setText(state.queryPrefix);
-        multiStep.setSelected(state.multiStepEnabled);
-        fields.get("maxRounds").setText(Integer.toString(state.maxRounds));
-        fields.get("maxQueries").setText(Integer.toString(state.maxQueries));
         password.setText(""); password.setEnabled(true); removePassword.setSelected(false);
     }
 
     @Override public void disposeUIResources() {
         if (password != null) password.setText("");
-        root = null; password = null; removePassword = null; notes = null; multiStep = null;
+        root = null; password = null; removePassword = null; notes = null;
         fields.clear();
     }
 }

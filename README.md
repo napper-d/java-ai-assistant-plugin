@@ -22,14 +22,14 @@ source IDs and page/slide references. R3 awaits user acceptance; see the
 The UI supports Enter to send, Shift+Enter for newlines, clearing during a request,
 and light/dark themes. Stage 4 review fixes are ready for IDE acceptance.
 The `rag` package now registers original PDF/PPTX paths without copying files, with configurable online
-embeddings, persisted local vector search, bounded multi-step reference expansion
-and a pluggable asynchronous query planner. It is not
+embeddings and persisted local vector search. It is not
 connected to real chat yet; the Course materials tab uses its Java APIs. A real embedding provider and course corpus still
 need acceptance; LLM answers, Diff review and source writes remain pending.
 
-See [RAG configuration, commands and integration](docs/rag-search.md) and
-[Member 2 task status](docs/rag-search-task.md). `ragImport` needs no API key;
-`ragIndex` and `ragSearch` require the explicitly configured embedding endpoint.
+See [RAG plugin configuration and integration](docs/rag-search.md) and
+[Member 2 task status](docs/rag-search-task.md). Use the Course materials tab to
+register files, rebuild the index and preview retrieval. Registration needs no API
+key; rebuilding and querying use the embedding endpoint configured in Settings.
 
 ## Development baseline
 

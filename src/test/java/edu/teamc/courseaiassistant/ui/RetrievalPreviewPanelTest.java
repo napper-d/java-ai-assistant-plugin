@@ -248,7 +248,7 @@ class RetrievalPreviewPanelTest {
             stickyNext = false; calls.add(new Call(query, maximum, future)); return future;
         }
         @Override public CompletableFuture<KnowledgeBaseSnapshot> refreshLibrary() { throw new AssertionError("Preview must not scan the registry"); }
-        @Override public CompletableFuture<KnowledgeBaseSnapshot> registerMaterials(List<Path> paths) { throw new AssertionError(); }
+        @Override public CompletableFuture<MaterialRegistrationResult> registerMaterials(List<Path> paths) { throw new AssertionError(); }
         @Override public CompletableFuture<KnowledgeBaseSnapshot> unregisterMaterials(List<Path> paths) { throw new AssertionError(); }
         @Override public CompletableFuture<KnowledgeBaseSnapshot> rebuildLibrary() { throw new AssertionError(); }
         @Override public Runnable onSettingsChanged(Runnable listener) { settingsListener.set(listener); return () -> settingsListener.set(null); }

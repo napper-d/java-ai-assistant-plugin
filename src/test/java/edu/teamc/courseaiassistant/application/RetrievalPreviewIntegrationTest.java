@@ -84,7 +84,7 @@ class RetrievalPreviewIntegrationTest {
         try (Fixture fixture = new Fixture()) {
             fixture.build();
             String manifest = Files.readString(fixture.config.indexDirectory().resolve("manifest.json"));
-            var changed = fixture.settings(); changed.minScore = .99; changed.multiStepEnabled = false;
+            var changed = fixture.settings(); changed.minScore = .99;
             try (var adjusted = new LocalKnowledgeSearch(changed.toConfig(root, ""), fixture.embeddings)) {
                 assertEquals(2, get(adjusted.reloadSummary()).documentIds().size());
                 assertEquals(1, get(adjusted.search("inheritance", 5)).size());

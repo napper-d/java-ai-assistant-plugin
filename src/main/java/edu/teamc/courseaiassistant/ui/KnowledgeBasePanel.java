@@ -2,6 +2,7 @@ package edu.teamc.courseaiassistant.ui;
 
 import edu.teamc.courseaiassistant.application.KnowledgeBaseOperations;
 import edu.teamc.courseaiassistant.application.KnowledgeBaseSnapshot;
+import edu.teamc.courseaiassistant.application.MaterialRegistrationResult;
 import edu.teamc.courseaiassistant.rag.DocumentImporter.RegisteredDocument;
 import edu.teamc.courseaiassistant.rag.RagException;
 
@@ -13,6 +14,8 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.*;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /** Material management only. It never formats an LLM answer or prompts for credentials. */
@@ -20,6 +23,7 @@ public final class KnowledgeBasePanel extends JPanel {
     private final KnowledgeBaseOperations operations;
     private final Supplier<List<Path>> chooseFiles;
     private final Runnable openSettings;
+    private final Consumer<String> showRegistrationNotice;
     private final JButton add = button("Add PDF / PPTX", "addMaterials");
     private final JButton remove = button("Remove", "removeMaterials");
     private final JButton rebuild = button("Rebuild index", "rebuildIndex");
@@ -44,11 +48,13 @@ public final class KnowledgeBasePanel extends JPanel {
     private boolean busy;
     private boolean disposed;
 
-    public KnowledgeBasePanel(KnowledgeBaseOperations operations, Supplier<List<Path>> chooseFiles, Runnable openSettings) {
+    public KnowledgeBasePanel(KnowledgeBaseOperations operations, Supplier<List<Path>> chooseFiles, Runnable openSettings,
+                             Consumer<String> showRegistrationNotice) {
         super(new BorderLayout(0, 10));
         this.operations = Objects.requireNonNull(operations);
         this.chooseFiles = Objects.requireNonNull(chooseFiles);
         this.openSettings = Objects.requireNonNull(openSettings);
+        this.showRegistrationNotice = Objects.requireNonNull(showRegistrationNotice);
         setName("knowledgeBasePanel"); setBorder(new EmptyBorder(12, 14, 12, 14));
         JPanel header = new JPanel(new BorderLayout(0, 6));
         JLabel title = new JLabel("Course materials"); title.setFont(title.getFont().deriveFont(Font.BOLD));
@@ -129,7 +135,20 @@ public final class KnowledgeBasePanel extends JPanel {
         if (selected == null || selected.isEmpty()) return;
         List<Path> captured = List.copyOf(selected);
         run("Registering course files…", "Files registered. Rebuild to update the saved index.",
-                () -> operations.registerMaterials(captured), true);
+                () -> operations.registerMaterials(captured), MaterialRegistrationResult::snapshot,
+                this::registrationCompleted, true);
+    }
+
+    private void registrationCompleted(MaterialRegistrationResult result) {
+        if (result.alreadyRegistered().isEmpty()) return;
+        String summary = result.addedFiles() == 0
+                ? "All selected files are already registered. No files were added."
+                : result.addedFiles() + (result.addedFiles() == 1 ? " new file registered." : " new files registered.")
+                    + " Already registered files were skipped. Rebuild to update the saved index.";
+        feedback.setText(summary + (result.snapshot().indexState() == KnowledgeBaseSnapshot.IndexState.RELOAD_REQUIRED
+                ? "\nIndex saved; loading failed. Use Refresh / Load to retry." : ""));
+        showRegistrationNotice.accept(summary + "\n\nAlready registered:\n"
+                + String.join("\n", result.alreadyRegistered().stream().map(Path::toString).toList()));
     }
 
     private void removeSelected() {
@@ -143,14 +162,22 @@ public final class KnowledgeBasePanel extends JPanel {
     private void refresh() { run("Loading saved index and registrations…", null, operations::refreshLibrary, false); }
 
     private void run(String activity, String completed, Supplier<CompletableFuture<KnowledgeBaseSnapshot>> work, boolean recover) {
+        run(activity, completed, work, Function.identity(), value -> {}, recover);
+    }
+
+    private <T> void run(String activity, String completed, Supplier<CompletableFuture<T>> work,
+                         Function<T, KnowledgeBaseSnapshot> snapshotOf, Consumer<T> onSuccess, boolean recover) {
         if (disposed || busy) return;
         long token = ++generation;
         busy = true; progress.setVisible(true); status.setText(activity); updateControls();
-        try { pending = Objects.requireNonNull(work.get()); }
+        CompletableFuture<T> future;
+        try { future = Objects.requireNonNull(work.get()); pending = future; }
         catch (RuntimeException error) { finish(token, null, error, completed, recover); return; }
-        @SuppressWarnings("unchecked")
-        CompletableFuture<KnowledgeBaseSnapshot> future = (CompletableFuture<KnowledgeBaseSnapshot>) pending;
-        future.whenComplete((value, error) -> SwingUtilities.invokeLater(() -> finish(token, value, error, completed, recover)));
+        future.whenComplete((value, error) -> SwingUtilities.invokeLater(() -> {
+            if (disposed || token != generation) return;
+            finish(token, value == null ? null : snapshotOf.apply(value), error, completed, recover);
+            if (error == null && value != null && !disposed && token == generation) onSuccess.accept(value);
+        }));
     }
 
     private void finish(long token, KnowledgeBaseSnapshot value, Throwable error, String completed, boolean recover) {
