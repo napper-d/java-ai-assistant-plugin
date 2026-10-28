@@ -109,14 +109,14 @@ class RagSettingsTest {
         var service = new ProjectRagService(project(root.toString(), settings));
         Path file = Files.writeString(root.resolve("source.pdf"), "registration-only fixture");
         try {
-            assertEquals(1, service.importFiles(List.of(file)).get(5, TimeUnit.SECONDS).size());
+            assertEquals(1, service.registerMaterials(List.of(file)).get(5, TimeUnit.SECONDS).documents().size());
             var updated = settings.getState(); updated.model = "replacement-model";
             service.updateSettings(updated);
             assertEquals("replacement-model", settings.getState().model);
-            assertTrue(service.importFiles(List.of(file)).get(5, TimeUnit.SECONDS).getFirst().reused());
+            assertEquals(1, service.registerMaterials(List.of(file)).get(5, TimeUnit.SECONDS).documents().size());
             assertTrue(Files.exists(root.resolve(".course-ai/documents/default/documents.json")));
         } finally { service.dispose(); }
-        var error = assertThrows(ExecutionException.class, () -> service.reload().get());
+        var error = assertThrows(ExecutionException.class, () -> service.refreshLibrary().get());
         assertEquals(RagException.Reason.CLOSED, ((RagException) error.getCause()).getReason());
     }
 

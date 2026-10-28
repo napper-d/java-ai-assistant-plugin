@@ -33,9 +33,8 @@ public final class RetrievalPreviewPanel extends JPanel {
     private final Runnable unsubscribeSettings;
     private final Runnable unsubscribeLibrary;
     private CompletableFuture<List<KnowledgeChunk>> pending;
-    private record Turn(String query, List<KnowledgeChunk> chunks, String message) {}
-    private final List<Turn> turns = new ArrayList<>();
-    private String activeQuery;
+    private record Evidence(List<KnowledgeChunk> chunks, ConversationView.TextMessage view) {}
+    private final List<Evidence> results = new ArrayList<>();
     private long generation;
     private boolean busy;
     private boolean disposed;
@@ -77,7 +76,7 @@ public final class RetrievalPreviewPanel extends JPanel {
         progress.setIndeterminate(true); progress.setVisible(false); footer.add(progress, BorderLayout.SOUTH);
         JPanel composer = ChatWidgets.composer(question, tools, footer, null);
         composer.setName("retrievalComposer"); add(composer, BorderLayout.SOUTH);
-        render();
+        showWelcome();
 
         search.addActionListener(event -> submit());
         cancel.addActionListener(event -> cancelSearch());
@@ -85,7 +84,9 @@ public final class RetrievalPreviewPanel extends JPanel {
             question.setText(""); invalidate("Enter a question to inspect up to 5 saved excerpts.");
         });
         settings.addActionListener(event -> openSettings.run());
-        scores.addActionListener(event -> render());
+        scores.addActionListener(event -> {
+            for (Evidence result : results) result.view().setText(excerpts(result.chunks()));
+        });
         question.getDocument().addDocumentListener(new DocumentListener() {
             @Override public void insertUpdate(DocumentEvent event) { updateControls(); }
             @Override public void removeUpdate(DocumentEvent event) { updateControls(); }
@@ -103,7 +104,7 @@ public final class RetrievalPreviewPanel extends JPanel {
             if (!disposed) invalidate("Settings changed. Results cleared; rebuild if the model or chunk settings changed, then search again.");
         }));
         unsubscribeLibrary = operations.onLibraryChanged(() -> SwingUtilities.invokeLater(() -> {
-            if (!disposed && (busy || !turns.isEmpty())) {
+            if (!disposed && (busy || evidence.hasMessages())) {
                 invalidate("Course materials or index loaded/changed. Results cleared; rebuild as needed and search again.");
             }
         }));
@@ -129,48 +130,44 @@ public final class RetrievalPreviewPanel extends JPanel {
         String query = question.getText().strip();
         if (query.isBlank()) { status.setText("Enter a question first."); return; }
         long token = ++generation;
-        busy = true; activeQuery = query;
+        busy = true;
         question.setText(""); status.setText("Searching saved course evidence…");
-        render(); scrollToLatest();
+        evidence.addUserMessage(query, null);
+        evidence.addLoadingMessage("Searching course materials…"); scrollToLatest();
         progress.setVisible(true); updateControls();
         try { pending = Objects.requireNonNull(operations.search(query, MAX_RESULTS)); }
-        catch (RuntimeException error) { finish(token, query, null, error); return; }
-        pending.whenComplete((chunks, error) -> SwingUtilities.invokeLater(() -> finish(token, query, chunks, error)));
+        catch (RuntimeException error) { finish(token, null, error); return; }
+        pending.whenComplete((chunks, error) -> SwingUtilities.invokeLater(() -> finish(token, chunks, error)));
     }
 
-    private void finish(long token, String query, List<KnowledgeChunk> chunks, Throwable error) {
+    private void finish(long token, List<KnowledgeChunk> chunks, Throwable error) {
         if (disposed || token != generation) return;
-        pending = null; busy = false; activeQuery = null; progress.setVisible(false);
+        pending = null; busy = false; progress.setVisible(false);
+        evidence.removeLoadingMessage();
+        boolean valid = error == null && chunks != null && chunks.stream().noneMatch(Objects::isNull);
         Throwable cause = unwrap(error);
         if (cause instanceof CancellationException) {
             status.setText("Search cancelled. No results from the cancelled request are displayed.");
-        } else if (error != null || chunks == null || chunks.stream().anyMatch(Objects::isNull)) {
+        } else if (!valid) {
             status.setText("Search failed. " + (cause instanceof RagException rag ? rag.getMessage()
                     : "Unable to retrieve course evidence. Check settings or the saved index and retry."));
         } else {
-            List<KnowledgeChunk> results = List.copyOf(chunks);
-            status.setText(results.isEmpty()
+            status.setText(chunks.isEmpty()
                     ? "No relevant course material found in the saved index. No model answer was generated."
-                    : results.size() + " excerpt(s) found. Sources refer to the saved index; rebuild after changing course files.");
-            turns.add(new Turn(query, results, results.isEmpty() ? status.getText() : null));
+                    : chunks.size() + " excerpt(s) found. Sources refer to the saved index; rebuild after changing course files.");
         }
-        if (error != null || chunks == null || chunks.stream().anyMatch(Objects::isNull)) {
-            turns.add(new Turn(query, List.of(), status.getText()));
+        if (valid && !chunks.isEmpty()) {
+            List<KnowledgeChunk> captured = List.copyOf(chunks);
+            results.add(new Evidence(captured, evidence.addTextMessage("Course evidence", excerpts(captured))));
+        } else {
+            evidence.addTextMessage("Course evidence", status.getText());
         }
-        render(); scrollToLatest(); question.requestFocusInWindow();
+        scrollToLatest(); question.requestFocusInWindow();
         updateControls(); revalidate(); repaint();
     }
 
-    private void render() {
+    private void showWelcome() {
         evidence.showWelcome("Search your course", "Ask a question below to find original passages in your saved PDF and slide index.\n\nResults are course evidence, not an AI-generated answer. Each question is searched independently.");
-        for (Turn turn : turns) {
-            evidence.addUserMessage(turn.query(), null);
-            evidence.addTextMessage("Course evidence", turn.message() != null ? turn.message() : excerpts(turn.chunks()));
-        }
-        if (activeQuery != null) {
-            evidence.addUserMessage(activeQuery, null);
-            evidence.addLoadingMessage("Searching course materials…");
-        }
     }
 
     private String excerpts(List<KnowledgeChunk> results) {
@@ -198,22 +195,22 @@ public final class RetrievalPreviewPanel extends JPanel {
 
     private void cancelSearch() {
         if (!busy) return;
-        String query = activeQuery;
         generation++;
         if (pending != null) pending.cancel(true);
-        pending = null; busy = false; activeQuery = null;
+        pending = null; busy = false;
         progress.setVisible(false);
         String message = "Search cancelled. No results from the cancelled request are displayed.";
-        turns.add(new Turn(query, List.of(), message)); status.setText(message);
-        render(); scrollToLatest(); updateControls();
+        evidence.removeLoadingMessage();
+        evidence.addTextMessage("Course evidence", message); status.setText(message);
+        scrollToLatest(); updateControls();
         question.requestFocusInWindow();
     }
 
     private void invalidate(String message) {
         generation++;
         if (pending != null) pending.cancel(true);
-        pending = null; busy = false; activeQuery = null; turns.clear();
-        progress.setVisible(false); render(); status.setText(message);
+        pending = null; busy = false; results.clear();
+        progress.setVisible(false); showWelcome(); status.setText(message);
         updateControls(); revalidate(); repaint();
     }
 

@@ -33,7 +33,7 @@ public final class CourseAiToolWindowFactory implements ToolWindowFactory, DumbA
         MockChatService samples = new MockChatService();
         RequestCoordinator coordinator = new RequestCoordinator(project, samples);
 
-        ChatPanel panel = new ChatPanel(null, coordinator, example -> samples.setScenario(
+        ChatPanel panel = new ChatPanel(coordinator, example -> samples.setScenario(
                 example == SampleScenario.COURSE_CITATION
                         ? MockChatService.Scenario.SUCCESS_COURSE_GROUNDED
                         : MockChatService.Scenario.SUCCESS_GENERAL_KNOWLEDGE));

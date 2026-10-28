@@ -34,17 +34,6 @@ public final class ProjectRagService implements Disposable, KnowledgeBaseOperati
         return Path.of(path).toAbsolutePath().normalize();
     }
 
-    /** Returns the original cancellable RAG future. */
-    public CompletableFuture<List<DocumentImporter.ImportedDocument>> importFiles(List<Path> paths) {
-        return invoke(current -> current.indexer.importFiles(paths));
-    }
-
-    public CompletableFuture<CourseIndexer.IndexResult> rebuild() {
-        return invoke(current -> current.indexer.rebuild());
-    }
-
-    public CompletableFuture<Integer> reload() { return invoke(current -> current.search.reload()); }
-
     @Override public CompletableFuture<List<KnowledgeChunk>> search(String query, int maxResults) {
         return invoke(current -> current.search.search(query, maxResults));
     }

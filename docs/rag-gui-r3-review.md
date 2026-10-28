@@ -77,3 +77,16 @@ Course AI Assistant > Course materials 下有 Files & index / Retrieval preview 
 验证：检索预览 9 项定向检查通过，覆盖连续记录、取消保留旧证据、草稿、分数开关、清空/失效、键盘与窄侧栏位置。原 ChatPanelSmokeCheck 与 11 项 RequestLifecycleCheck 通过。最终执行本报告第 3 节同一 Gradle 命令：BUILD SUCCESSFUL，18m 3s，21 项任务（15 执行、6 已是最新），94 项测试全部通过，0 failures / errors / skipped；插件打包、配置与结构检查通过。本次配置缓存因 Java 运行时元数据变化失效，主要耗时在 IDEA SDK 内置插件扫描；完成后已重新保存缓存。
 
 新增浅/深色离屏预览位于 `build/reports/rag-gui-r3/retrieval-chat-light.png` 与 `retrieval-chat-dark.png`；不代表真实 IDEA 主题和输入法验收。用户验收仍待确认，未暂存、提交或推送。
+
+
+## 7. 2026-10-28 自有代码收敛
+
+范围按用户授权限定为成员 1 的界面、项目服务及检查工具。成员 2 的 `rag/` 算法、任务执行器和索引存储未修改；取消桥接合并与历史索引回收留待跨模块协调。
+
+- 删除旧同步样例的 SampleChatService、SampleReplyProvider、SampleReply；ChatPanel 只保留 RequestCoordinator 异步路径，真实 ChatService 接口及现有 MockChatService 保持不变。
+- 原工具目录的聊天交互/主题/布局检查和请求生命周期检查迁入标准 JUnit。测试覆盖实际使用的异步路径，保留清空、取消、过期回调、超时、失败恢复、样例引用标识及代码上下文检查；主题测试结束后恢复全局外观参数。
+- `tools/check-chat-ui.ps1` 仅为带类过滤的 Gradle test 快捷入口，移除独立 javac、SDK 路径发现及 classpath 导出任务。
+- ProjectRagService 移除绕过管理层的 importFiles/rebuild/reload，统一资料登记、重建及加载的状态和通知路径。
+- 检索预览增量追加消息，分数开关只更新已有回复文本；不再全量销毁历史组件。新增连续 21 次查询后的消息身份、问题选择和分数切换检查；清空、取消和失效规则保持不变。
+
+直接编译实际生产代码及全部测试后，JUnit 107 项通过，0 failures / errors / skipped。标准 Gradle 命令 `./gradlew.bat --offline --console=plain test buildPlugin verifyPluginProjectConfiguration verifyPluginStructure --continue --configuration-cache` 已完成：BUILD SUCCESSFUL，7m 29s，21 项任务（15 执行、6 已是最新），107 项测试全部通过，0 failures / errors / skipped；包含新纳入的聊天交互及请求生命周期测试。插件包内确认没有已删除的旧样例类。生产 Java 文件 59 → 56，项目文件净减 3 个，Java 代码净减 130 行。此次不新建审阅文档，不记录用户已验收，不暂存、提交或推送。

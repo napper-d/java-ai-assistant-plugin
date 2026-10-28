@@ -8,6 +8,9 @@ import edu.teamc.courseaiassistant.sample.SampleScenario;
 import edu.teamc.courseaiassistant.service.ChatService;
 import edu.teamc.courseaiassistant.service.mock.MockChatService;
 
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import javax.swing.*;
 import java.awt.*;
 import java.lang.reflect.Proxy;
@@ -18,23 +21,8 @@ import java.util.concurrent.atomic.*;
 import java.util.function.BooleanSupplier;
 
 /** Real Swing/coordinator regression checks with a Project lifetime proxy, not an IDE integration test. */
-public final class RequestLifecycleCheck {
-    private static int cases;
-
-    public static void main(String[] args) throws Exception {
-        checkClearAndStaleReplies();
-        checkQueuedSuccess();
-        checkDisposal(false);
-        checkDisposal(true);
-        checkServiceFailures();
-        checkDeadline();
-        checkStartupRecovery();
-        checkSampleSelectionAndContext();
-        checkInvalidReplies();
-        System.out.println("PASS: " + cases + " request lifecycle cases (headless Swing; IDE integration not covered).");
-    }
-
-    private static void checkClearAndStaleReplies() throws Exception {
+class RequestLifecycleTest {
+    @Test void checkClearAndStaleReplies() throws Exception {
         ControlledService service = new ControlledService();
         try (Fixture fixture = new Fixture(service)) {
             edt(() -> fixture.send("first"));
@@ -60,10 +48,9 @@ public final class RequestLifecycleCheck {
             });
             awaitEdt(() -> fixture.history().contains("CURRENT"));
         }
-        passed("clear, cancellation and stale callbacks");
     }
 
-    private static void checkQueuedSuccess() throws Exception {
+    @Test void checkQueuedSuccess() throws Exception {
         ControlledService service = new ControlledService();
         try (Fixture fixture = new Fixture(service)) {
             edt(() -> fixture.send("old")); Call old = service.next();
@@ -82,10 +69,10 @@ public final class RequestLifecycleCheck {
             });
             awaitEdt(() -> fixture.history().contains("NEW_ANSWER"));
         }
-        passed("queued success after clear");
     }
 
-    private static void checkDisposal(boolean projectDisposal) throws Exception {
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void checkDisposal(boolean projectDisposal) throws Exception {
         AtomicBoolean disposed = new AtomicBoolean();
         ControlledService service = new ControlledService();
         RequestCoordinator coordinator = new RequestCoordinator(project(disposed), service);
@@ -100,10 +87,9 @@ public final class RequestLifecycleCheck {
             flush();
             require(callback.terminals.get() == 0, "No callback after project/content disposal");
         } finally { coordinator.dispose(); }
-        passed(projectDisposal ? "project disposal before queued delivery" : "content disposal before queued delivery");
     }
 
-    private static void checkServiceFailures() throws Exception {
+    @Test void checkServiceFailures() throws Exception {
         for (MockChatService.Scenario scenario : List.of(MockChatService.Scenario.TIMEOUT, MockChatService.Scenario.NETWORK_ERROR)) {
             var coordinator = new RequestCoordinator(project(new AtomicBoolean()), new MockChatService(scenario, 1));
             Recording callback = new Recording();
@@ -113,7 +99,6 @@ public final class RequestLifecycleCheck {
                         ? ServiceFailure.Category.TIMEOUT : ServiceFailure.Category.NETWORK_ERROR), "Preserve Mock failure category");
                 require(callback.failure.get().isRetryable(), "Preserve retryability");
             } finally { coordinator.dispose(); }
-            passed("Mock " + scenario);
         }
         var coordinator = new RequestCoordinator(project(new AtomicBoolean()), request -> CompletableFuture.failedFuture(
                 new RuntimeException(new CompletionException(new ServiceFailure(request.getRequestId(),
@@ -124,10 +109,9 @@ public final class RequestLifecycleCheck {
             require(callback.failure.get().getCategory() == ServiceFailure.Category.MODEL_ERROR, "Unwrap nested failures");
             require(!callback.failure.get().isRetryable(), "Preserve non-retryable failures");
         } finally { coordinator.dispose(); }
-        passed("nested exception classification");
     }
 
-    private static void checkDeadline() throws Exception {
+    @Test void checkDeadline() throws Exception {
         ControlledService service = new ControlledService();
         var coordinator = new RequestCoordinator(project(new AtomicBoolean()), service, Duration.ofMillis(200));
         Recording callback = new Recording();
@@ -139,10 +123,9 @@ public final class RequestLifecycleCheck {
             require(callback.terminals.get() == 1, "Timeout delivers one terminal result");
             require(!coordinator.hasPendingRequests(), "Timeout releases request tracking");
         } finally { coordinator.dispose(); }
-        passed("real deadline and service cancellation");
     }
 
-    private static void checkStartupRecovery() throws Exception {
+    @Test void checkStartupRecovery() throws Exception {
         AtomicInteger starts = new AtomicInteger();
         AtomicBoolean onEdt = new AtomicBoolean();
         try (Fixture fixture = new Fixture(request -> {
@@ -159,16 +142,15 @@ public final class RequestLifecycleCheck {
             });
             awaitEdt(() -> fixture.history().contains("RECOVERED"));
         }
-        passed("synchronous startup failure and recovery");
     }
 
-    private static void checkSampleSelectionAndContext() throws Exception {
+    @Test void checkSampleSelectionAndContext() throws Exception {
         MockChatService service = new MockChatService(MockChatService.Scenario.SUCCESS_COURSE_GROUNDED, 1);
         AtomicReference<ChatRequest> received = new AtomicReference<>();
         var coordinator = new RequestCoordinator(project(new AtomicBoolean()), request -> { received.set(request); return service.ask(request); });
         AtomicReference<ChatPanel> ref = new AtomicReference<>();
         try {
-            edt(() -> ref.set(new ChatPanel(null, coordinator, choice -> service.setScenario(choice == SampleScenario.COURSE_CITATION
+            edt(() -> ref.set(new ChatPanel(coordinator, choice -> service.setScenario(choice == SampleScenario.COURSE_CITATION
                     ? MockChatService.Scenario.SUCCESS_COURSE_GROUNDED : MockChatService.Scenario.SUCCESS_GENERAL_KNOWLEDGE))));
             ChatPanel panel = ref.get();
             CodeContext context = new CodeContext("src/Main.java", "JAVA", "return value;", 3, 3, 42, null);
@@ -190,10 +172,9 @@ public final class RequestLifecycleCheck {
             awaitEdt(() -> transcript(panel).contains("no specific course material is referenced"));
             edt(() -> require(!transcript(panel).contains("[S1]"), "General selection has no course citations"));
         } finally { edt(() -> ref.get().dispose()); }
-        passed("async example selection, disclosure and context");
     }
 
-    private static void checkInvalidReplies() throws Exception {
+    @Test void checkInvalidReplies() throws Exception {
         for (boolean nullAnswer : List.of(true, false)) {
             var coordinator = new RequestCoordinator(project(new AtomicBoolean()), request -> CompletableFuture.completedFuture(
                     nullAnswer ? null : answer(new ChatRequest("other", null), "wrong request")));
@@ -204,7 +185,6 @@ public final class RequestLifecycleCheck {
                 require(callback.terminals.get() == 1, "Invalid response completes once");
             } finally { coordinator.dispose(); }
         }
-        passed("null and mismatched response IDs");
     }
 
     private record Call(ChatRequest request, CompletableFuture<ChatAnswer> future) {}
@@ -223,7 +203,7 @@ public final class RequestLifecycleCheck {
         Fixture(ChatService service) throws Exception {
             coordinator = new RequestCoordinator(project(new AtomicBoolean()), service);
             AtomicReference<ChatPanel> created = new AtomicReference<>();
-            edt(() -> created.set(new ChatPanel(null, coordinator))); panel = created.get();
+            edt(() -> created.set(new ChatPanel(coordinator))); panel = created.get();
         }
         JTextArea input() { return find(panel, "questionInput", JTextArea.class); }
         JButton send() { return find(panel, "sendButton", JButton.class); }
@@ -243,7 +223,7 @@ public final class RequestLifecycleCheck {
         private void finish() { require(SwingUtilities.isEventDispatchThread(), "Terminal callback uses EDT"); terminals.incrementAndGet(); done.countDown(); }
         void await() throws Exception { require(done.await(3, TimeUnit.SECONDS), "Terminal callback received"); }
     }
-    private static Project project(AtomicBoolean disposed) {
+    static Project project(AtomicBoolean disposed) {
         return (Project) Proxy.newProxyInstance(Project.class.getClassLoader(), new Class<?>[]{Project.class}, (p, method, args) ->
                 method.getName().equals("isDisposed") ? disposed.get() : null);
     }
@@ -258,9 +238,9 @@ public final class RequestLifecycleCheck {
         }
         return null;
     }
-    private static void edt(Runnable action) throws Exception { SwingUtilities.invokeAndWait(action); }
+    static void edt(Runnable action) throws Exception { SwingUtilities.invokeAndWait(action); }
     private static void flush() throws Exception { edt(() -> {}); edt(() -> {}); }
-    private static void awaitEdt(BooleanSupplier condition) throws Exception {
+    static void awaitEdt(BooleanSupplier condition) throws Exception {
         await(() -> { AtomicBoolean ready = new AtomicBoolean();
             try { edt(() -> ready.set(condition.getAsBoolean())); } catch (Exception e) { throw new RuntimeException(e); }
             return ready.get(); });
@@ -273,5 +253,4 @@ public final class RequestLifecycleCheck {
         }
     }
     private static void require(boolean condition, String message) { if (!condition) throw new AssertionError(message); }
-    private static void passed(String name) { cases++; System.out.println("PASS: " + name); }
 }

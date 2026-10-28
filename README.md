@@ -158,29 +158,30 @@ The Gradle plugin's automatic version check is disabled through
 `org.jetbrains.intellij.platform.selfUpdateCheck=false`; dependency resolution,
 project verification and the pinned plugin/IDE versions remain unchanged.
 
-## Standalone interaction checks
+## Interaction and regression tests
 
-With a local JDK 21 selected in the current shell's `JAVA_HOME`:
-
-```powershell
-.\tools\check-chat-ui.ps1
-```
-
-The script compiles all production Java sources and both check entry points with
-Java 21. It uses the IDEA 2025.2.4 SDK extracted by an earlier Gradle sync and asks
-Gradle to export the dependency classpath, including the RAG libraries. It starts
-no IDE or model service. Gradle may download missing dependencies; pass `-Offline`
-after they are cached to prohibit downloads. If automatic SDK discovery fails:
+All chat, retrieval and material-management checks now run through JUnit:
 
 ```powershell
-.\tools\check-chat-ui.ps1 -IdeHome 'C:\path\to\ideaIU-2025.2.4-win'
+.\gradlew.bat test --configuration-cache
 ```
 
-The original interaction/theme/layout checks also write light/dark/narrow previews
-to `build/reports/stage2/`. Eleven additional request lifecycle cases use real
-Swing controls and the coordinator with a proxy for project disposal state. They
-cover stale replies, clearing, disposal, failures, deadlines, recovery, example
-selection and context delivery. These do not replace actual IDE acceptance.
+For only chat interaction and request lifecycle checks, use:
+
+```powershell
+.\tools\check-chat-ui.ps1 -Offline
+```
+
+The script delegates to the same Gradle test task with class filters; it no longer
+exports a classpath or separately compiles Java sources. Omit `-Offline` when
+missing dependencies need downloading. JDK 21 and the configured IDEA SDK remain
+required. Tests start no interactive IDE or external model service.
+
+Chat tests exercise the asynchronous path used by the Tool Window, including
+literal input, examples, citations, history, theme changes, narrow layouts,
+cancellation, stale replies, disposal, failures, deadlines, recovery and selected
+code context. Light/dark/narrow previews are written to `build/reports/stage2/`.
+These checks do not replace actual IDE acceptance.
 
 Sandbox log:
 
@@ -201,10 +202,10 @@ instead of packaging a duplicate.
 .run/                   Shared IDE run configuration
 gradle/                 Wrapper and JDK 21 daemon criteria
 src/main/java/          UI, context, coordinator, service contracts, sample adapters and RAG
-src/test/java/          RAG parsing, persistence, retrieval and local HTTP tests
+src/test/java/          JUnit chat/UI, lifecycle, RAG and local HTTP tests
 src/main/resources/     Plugin descriptor, icon and message resources
 docs/                   Module boundaries, draft contracts and review notes
-tools/                  Standalone Swing interaction checks
+tools/                  Shortcut for filtered Gradle chat tests
 build/                  Generated output and sandbox (ignored)
 ```
 

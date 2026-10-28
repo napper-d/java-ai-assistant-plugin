@@ -106,15 +106,6 @@ tasks.register<JavaExec>("ragSearch") {
     args("search", ragProjectRoot.get(), ragEnvDir.get(), ragQuery.get(), ragMaxResults.get())
 }
 
-tasks.register("exportCheckClasspath") {
-    group = "verification"
-    val classpath = sourceSets.main.get().runtimeClasspath
-    val outputFile = layout.buildDirectory.file("ui-check-classpath.txt")
-    inputs.files(classpath)
-    outputs.file(outputFile)
-    doLast { outputFile.get().asFile.writeText(classpath.asPath) }
-}
-
 kotlin {
     jvmToolchain(21)
     compilerOptions {

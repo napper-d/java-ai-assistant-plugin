@@ -6,6 +6,8 @@ marked as sample data. No real retrieval, LLM or modification service is wired i
 The separate Course materials tab calls ProjectRagService through
 KnowledgeBaseOperations for registry management and rebuild/reload; it displays
 KnowledgeBaseSnapshot values and never turns them into ChatAnswer results.
+Project-level material changes use only these managed operations, preserving
+serialization, index state and preview invalidation notifications.
 Retrieval preview calls the same project's `search(query, 5)` and displays the
 returned KnowledgeChunk/SourceReference values directly. Its settings/library
 subscriptions invalidate results without automatically issuing new queries.

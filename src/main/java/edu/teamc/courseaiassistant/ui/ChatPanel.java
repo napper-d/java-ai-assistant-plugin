@@ -5,8 +5,6 @@ import edu.teamc.courseaiassistant.context.CodeContext;
 import edu.teamc.courseaiassistant.model.ChatAnswer;
 import edu.teamc.courseaiassistant.model.ChatRequest;
 import edu.teamc.courseaiassistant.model.ServiceFailure;
-import edu.teamc.courseaiassistant.sample.SampleReply;
-import edu.teamc.courseaiassistant.sample.SampleReplyProvider;
 import edu.teamc.courseaiassistant.sample.SampleScenario;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -24,8 +22,7 @@ import java.util.function.Consumer;
 
 /** Local chat view. Never changes IDE theme, editor settings, or source files. */
 public final class ChatPanel extends JPanel {
-    private final @Nullable SampleReplyProvider sampleReplies;
-    private final @Nullable RequestCoordinator coordinator;
+    private final RequestCoordinator coordinator;
     private final @Nullable Consumer<SampleScenario> configureSample;
     private final boolean sampleMode;
     private final ConversationView conversation = new ConversationView();
@@ -41,25 +38,16 @@ public final class ChatPanel extends JPanel {
     private boolean isWaitingForResponse;
     private boolean disposed;
 
-    public ChatPanel(SampleReplyProvider replies) {
-        this(replies, null);
-    }
-
-    public ChatPanel(@Nullable SampleReplyProvider sampleReplies, @Nullable RequestCoordinator coordinator) {
-        this(sampleReplies, coordinator, null);
+    public ChatPanel(RequestCoordinator coordinator) {
+        this(coordinator, null);
     }
 
     /** The optional selector configures an asynchronous sample adapter before each request. */
-    public ChatPanel(@Nullable SampleReplyProvider sampleReplies, @Nullable RequestCoordinator coordinator,
-                     @Nullable Consumer<SampleScenario> configureSample) {
+    public ChatPanel(RequestCoordinator coordinator, @Nullable Consumer<SampleScenario> configureSample) {
         super(new BorderLayout(0, 8));
-        this.sampleReplies = sampleReplies;
-        this.coordinator = coordinator;
+        this.coordinator = Objects.requireNonNull(coordinator);
         this.configureSample = configureSample;
-        this.sampleMode = sampleReplies != null || configureSample != null;
-        if (sampleReplies == null && coordinator == null) {
-            throw new IllegalArgumentException("At least one of sampleReplies or coordinator must be provided");
-        }
+        this.sampleMode = configureSample != null;
         setBorder(new EmptyBorder(12, 14, 10, 14));
         setPreferredSize(new Dimension(440, 760));
         add(createHeader(), BorderLayout.NORTH);
@@ -149,25 +137,8 @@ public final class ChatPanel extends JPanel {
         clearCodeContext();
         question.setText("");
 
-        if (coordinator != null) {
-            if (configureSample != null) configureSample.accept((SampleScenario) scenario.getSelectedItem());
-            submitAsyncRequest(text, contextToSend);
-        } else if (sampleReplies != null) {
-            submitSampleRequest(text, contextToSend);
-        }
-    }
-
-    private void submitSampleRequest(String text, CodeContext context) {
-        SampleReply reply = sampleReplies.reply((SampleScenario) scenario.getSelectedItem());
-        conversation.addExchange(text, reply, context);
-        clear.setEnabled(true);
-        status.setText("Fixed sample reply. No model connected.");
-        question.requestFocusInWindow();
-        SwingUtilities.invokeLater(() -> {
-            if (isDisplayable() && conversation.hasMessages()) {
-                history.getVerticalScrollBar().setValue(history.getVerticalScrollBar().getMaximum());
-            }
-        });
+        if (configureSample != null) configureSample.accept((SampleScenario) scenario.getSelectedItem());
+        submitAsyncRequest(text, contextToSend);
     }
 
     private void submitAsyncRequest(String text, CodeContext context) {
@@ -265,7 +236,7 @@ public final class ChatPanel extends JPanel {
         // Invalidate the UI request before cancellation can enqueue any callback.
         currentRequestId = null;
         isWaitingForResponse = false;
-        if (requestToCancel != null && coordinator != null) coordinator.cancelRequest(requestToCancel);
+        if (requestToCancel != null) coordinator.cancelRequest(requestToCancel);
         conversation.showWelcome();
         question.setText("");
         clear.setEnabled(false);
@@ -352,6 +323,6 @@ public final class ChatPanel extends JPanel {
         disposed = true;
         currentRequestId = null;
         isWaitingForResponse = false;
-        if (coordinator != null) coordinator.dispose();
+        coordinator.dispose();
     }
 }

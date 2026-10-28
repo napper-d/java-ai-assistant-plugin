@@ -17,7 +17,10 @@ operations and rebuild/reload work, while KnowledgeBasePanel delivers results on
 the EDT. RetrievalPreviewPanel calls the existing KnowledgeSearch through the
 project service and shows raw excerpts and real sources. Settings and library
 changes invalidate its pending work and old results. The original ChatService
-remains a mock. See the RAG GUI plan and R3 review for acceptance.
+remains a mock. Chat uses one asynchronous coordinator path for both the Tool
+Window and JUnit tests; obsolete synchronous sample adapters have been removed.
+Retrieval messages append incrementally, and score changes update existing reply
+text without rebuilding the transcript. See the RAG GUI plan and R3 review for acceptance.
 
 ## Proposed dependency flow
 

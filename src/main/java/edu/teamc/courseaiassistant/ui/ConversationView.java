@@ -3,7 +3,6 @@ package edu.teamc.courseaiassistant.ui;
 import edu.teamc.courseaiassistant.context.CodeContext;
 import edu.teamc.courseaiassistant.model.ChatAnswer;
 import edu.teamc.courseaiassistant.model.SourceReference;
-import edu.teamc.courseaiassistant.sample.SampleReply;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -37,34 +36,12 @@ public final class ConversationView extends JPanel implements Scrollable {
         repaint();
     }
 
-    void addExchange(String question, SampleReply reply, CodeContext context) {
-        if (!hasMessages) removeAll();
-        hasMessages = true;
-        add(new UserMessage(question, context));
-        add(new AssistantMessage(reply));
-        revalidate();
-        repaint();
-    }
-
-    void addExchange(String question, ChatAnswer answer, CodeContext context) {
-        if (!hasMessages) removeAll();
-        hasMessages = true;
-        add(new UserMessage(question, context));
-        add(new AssistantMessage(answer));
-        revalidate();
-        repaint();
-    }
-
     void addUserMessage(String question, CodeContext context) {
         if (!hasMessages) removeAll();
         hasMessages = true;
         add(new UserMessage(question, context));
         revalidate();
         repaint();
-    }
-
-    void addAssistantMessage(ChatAnswer answer) {
-        addAssistantMessage(answer, false);
     }
 
     void addAssistantMessage(ChatAnswer answer, boolean isSample) {
@@ -84,12 +61,14 @@ public final class ConversationView extends JPanel implements Scrollable {
     }
 
     /** Plain, selectable content with an explicit speaker; no chat/model semantics. */
-    void addTextMessage(String speaker, String text) {
+    TextMessage addTextMessage(String speaker, String text) {
         if (!hasMessages) removeAll();
         hasMessages = true;
-        add(new TextMessage(speaker, text));
+        TextMessage message = new TextMessage(speaker, text);
+        add(message);
         revalidate();
         repaint();
+        return message;
     }
 
     void removeLoadingMessage() {
@@ -226,14 +205,6 @@ public final class ConversationView extends JPanel implements Scrollable {
         private final ChatWidgets.Text sources;
         private final JPanel sourceCard;
 
-        AssistantMessage(SampleReply reply) {
-            this(reply.answer(), reply.disclosure(), toSourceReferences(reply.sources()), true);
-        }
-
-        AssistantMessage(ChatAnswer answer) {
-            this(answer, false);
-        }
-
         AssistantMessage(ChatAnswer answer, boolean isSample) {
             this(
                     answer.getAnswer(),
@@ -270,12 +241,6 @@ public final class ConversationView extends JPanel implements Scrollable {
             }
         }
 
-        private static List<SourceReference> toSourceReferences(List<SampleReply.Source> sampleSources) {
-            return sampleSources.stream()
-                    .map(s -> new SourceReference("S" + (sampleSources.indexOf(s) + 1), s.documentName(), s.page(), s.page(), null))
-                    .collect(Collectors.toList());
-        }
-
         @Override int heightAt(int width) {
             int height = (sample != null ? 40 : 24) + answer.heightAt(width) + 18;
             if (sources != null) height += sources.heightAt(Math.max(1, width - 24)) + 20 + 14;
@@ -306,13 +271,17 @@ public final class ConversationView extends JPanel implements Scrollable {
         }
     }
 
-    private static final class TextMessage extends Message {
+    static final class TextMessage extends Message {
         private final ChatWidgets.Label speaker;
         private final ChatWidgets.Text text;
         TextMessage(String speaker, String text) {
             this.speaker = new ChatWidgets.Label(speaker, 0, true, false);
             this.text = new ChatWidgets.Text(text, false, 0);
             add(this.speaker); add(this.text);
+        }
+        void setText(String value) {
+            text.setText(value);
+            if (getParent() != null) { getParent().revalidate(); getParent().repaint(); }
         }
         @Override int heightAt(int width) { return 28 + text.heightAt(width); }
         @Override public void doLayout() {

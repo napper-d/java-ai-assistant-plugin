@@ -217,6 +217,42 @@ class RetrievalPreviewPanelTest {
         }
     }
 
+    @Test void laterQueriesAndScoreChangesPreserveEarlierMessagesAndQuestionSelection() throws Exception {
+        try (Fixture fixture = new Fixture()) {
+            fixture.submit("first question"); complete(fixture.next(), List.of(PDF));
+            AtomicReference<Component> firstQuestion = new AtomicReference<>(), firstReply = new AtomicReference<>();
+            AtomicReference<ChatWidgets.Text> selectedText = new AtomicReference<>();
+            edt(() -> {
+                ConversationView view = (ConversationView) named(fixture.panel, "retrievalEvidence");
+                firstQuestion.set(view.getComponent(0)); firstReply.set(view.getComponent(1));
+                selectedText.set(textIn(firstQuestion.get())); selectedText.get().select(0, 5);
+            });
+            for (int i = 0; i < 20; i++) {
+                fixture.submit("later question " + i); complete(fixture.next(), List.of(SLIDE));
+            }
+            edt(() -> {
+                ((JCheckBox) named(fixture.panel, "retrievalScores")).doClick(0);
+                ConversationView view = (ConversationView) named(fixture.panel, "retrievalEvidence");
+                assertSame(firstQuestion.get(), view.getComponent(0));
+                assertSame(firstReply.get(), view.getComponent(1));
+                assertEquals("first", selectedText.get().getSelectedText());
+                assertEquals(42, view.getComponentCount());
+                assertTrue(fixture.evidence().contains("0.900"));
+                assertTrue(fixture.evidence().contains("later question 19"));
+                fixture.button("clearEvidence").doClick(0);
+                assertFalse(view.hasMessages());
+            });
+        }
+    }
+
+    private static ChatWidgets.Text textIn(Component component) {
+        if (component instanceof ChatWidgets.Text text) return text;
+        if (component instanceof Container parent) for (Component child : parent.getComponents()) {
+            ChatWidgets.Text text = textIn(child); if (text != null) return text;
+        }
+        return null;
+    }
+
     private static void layout(Component component) {
         if (component instanceof Container parent) { parent.doLayout(); for (Component child : parent.getComponents()) layout(child); }
     }
