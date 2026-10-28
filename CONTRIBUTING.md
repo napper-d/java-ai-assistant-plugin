@@ -26,7 +26,7 @@ PowerShell script; other systems can still run the Gradle build and manual IDE c
 | --- | --- | --- |
 | 1 | `ui`, `action`, `context`, `application`; shared `model` contracts | IDE acceptance of Stage 4; integrate real adapters and preserve request lifecycle behavior |
 | 2 | `rag` package; `LocalKnowledgeSearch` implementation | Validate a real provider/corpus and thresholds; hand off ingestion/search APIs to Members 1/3 |
-| 3 | Future `llm` package; `ChatService` and `CodeGenerationService` implementations | Cited answers, general-knowledge disclosure, safe failures and cancellable transport; generation returns proposals only |
+| 3 | `llm` package; `LlmChatService` and `LlmCodeGenerationService` | Validate the chosen real provider/corpus, coordinate live UI and Diff integration; standalone adapters and local tests are available in [the LLM guide](docs/llm-services.md) |
 | 4 | Future `modification` package; `ModificationService` implementation | Confirm the single-file/full-text handoff; built-in Diff review, explicit approval, stale-file checks and apply/cancel results |
 
 The shared values contain no Swing or IntelliJ editor objects. CodeContext uses
