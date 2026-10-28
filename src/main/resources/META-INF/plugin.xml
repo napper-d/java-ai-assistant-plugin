@@ -39,6 +39,10 @@
     </extensions>
 
     <actions>
+        <action id="CourseAiAssistant.SampleModify" class="edu.teamc.courseaiassistant.modification.SampleModifyAction"
+                text="F2: Review Fixed Sample Change (No AI)">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
         <action id="CourseAiAssistant.AskAssistant"
                 class="edu.teamc.courseaiassistant.action.AskAssistantAction"
                 text="Ask Course AI Assistant"
