@@ -11,6 +11,12 @@ import java.time.Duration;
 @Service(Service.Level.PROJECT)
 @State(name = "CourseAiLlmSettings", storages = @Storage(StoragePathMacros.WORKSPACE_FILE))
 public final class LlmSettings implements PersistentStateComponent<LlmSettings.State> {
+    /** Legacy project state is retained for compatibility; production consumers use IDE-global settings. */
+    public static LlmSettings getInstance(com.intellij.openapi.project.Project project) {
+        var global = GlobalConfiguration.available();
+        return global == null ? project.getService(LlmSettings.class) : global.llm();
+    }
+
     public static final class State {
         public String baseUrl = "";
         public String model = "";

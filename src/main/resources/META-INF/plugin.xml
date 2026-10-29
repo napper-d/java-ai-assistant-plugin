@@ -28,14 +28,14 @@
     <!-- Extensions defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
-        <projectConfigurable parentId="tools" id="edu.teamc.courseaiassistant"
-                             displayName="Course AI Assistant" groupWeight="100" nonDefaultProject="true"
+        <applicationConfigurable parentId="tools" id="edu.teamc.courseaiassistant"
+                             displayName="Course AI Assistant" groupWeight="100"
                              instance="edu.teamc.courseaiassistant.settings.CourseAiSettingsGroup"/>
-        <projectConfigurable parentId="edu.teamc.courseaiassistant" id="edu.teamc.courseaiassistant.rag"
-                             displayName="Course RAG" nonDefaultProject="true"
+        <applicationConfigurable parentId="edu.teamc.courseaiassistant" id="edu.teamc.courseaiassistant.rag"
+                             displayName="Course RAG"
                              instance="edu.teamc.courseaiassistant.settings.RagSettingsConfigurable"/>
-        <projectConfigurable parentId="edu.teamc.courseaiassistant" id="edu.teamc.courseaiassistant.llm"
-                             displayName="Language model" nonDefaultProject="true"
+        <applicationConfigurable parentId="edu.teamc.courseaiassistant" id="edu.teamc.courseaiassistant.llm"
+                             displayName="Language model"
                              instance="edu.teamc.courseaiassistant.settings.LlmSettingsConfigurable"/>
         <toolWindow id="CourseAiAssistant" factoryClass="edu.teamc.courseaiassistant.ui.CourseAiToolWindowFactory"
                     anchor="right" icon="AllIcons.Toolwindows.ToolWindowPalette"/>
@@ -43,7 +43,7 @@
 
     <actions>
         <action id="CourseAiAssistant.LiveModify" class="edu.teamc.courseaiassistant.modification.LiveModifyAction"
-                text="Modify Java Code with LLM..." description="Generate and review a change using explicit model configuration">
+                text="Modify Java Code with LLM..." description="Generate and review a change using project Language model settings">
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
         </action>
         <action id="CourseAiAssistant.AskAssistant"

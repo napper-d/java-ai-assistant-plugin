@@ -1,3 +1,5 @@
+> I4 更新（2026-10-29）：正式 F2 入口使用 ProjectLlmService 与 Language model 设置，不再选择 .env 目录。配置变化会使生成及待批准审阅失效。以下旧 .env 接线说明仅为历史或显式开发工具用途。详见 [I4 审阅](integration-i4-review.md)。
+
 # 成员 3：大模型问答与代码生成
 
 > Current UI update: Chat and Course materials share one icon navigation surface;

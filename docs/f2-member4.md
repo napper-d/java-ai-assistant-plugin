@@ -1,3 +1,5 @@
+> I4 更新（2026-10-29）：正式 F2 入口使用 ProjectLlmService 与 Language model 设置，不再选择 .env 目录。配置变化会使生成及待批准审阅失效。以下旧 .env 接线说明仅为历史或显式开发工具用途。详见 [I4 审阅](integration-i4-review.md)。
+
 # F2 Member 4 local implementation
 
 Status: member-three LLM branch merged locally. A separate real-model editor action is connected to F2; fixed offline samples remain available. Shared contracts and platform versions are unchanged. Real-provider acceptance is pending.

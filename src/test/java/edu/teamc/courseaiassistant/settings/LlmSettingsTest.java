@@ -93,10 +93,10 @@ class LlmSettingsTest {
         });
     }
 
-    @Test void keysAreNamespacedPerProjectAndCredentialIoIsRejectedOnEdt() throws Exception {
+    @Test void keysAreGlobalAndCredentialIoIsRejectedOnEdt() throws Exception {
         var first = project("one", new LlmSettings());
         var second = project("two", new LlmSettings());
-        assertNotEquals(LlmCredentials.attributes(first), LlmCredentials.attributes(second));
+        assertEquals(LlmCredentials.attributes(first), LlmCredentials.attributes(second));
         assertTrue(LlmCredentials.attributes(first).getServiceName().contains(" / LLM / "));
         SwingUtilities.invokeAndWait(() -> {
             assertThrows(IllegalStateException.class, () -> LlmCredentials.read(first));

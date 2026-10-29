@@ -12,7 +12,7 @@ public final class LlmCredentials {
     private LlmCredentials() {}
 
     static CredentialAttributes attributes(Project project) {
-        return new CredentialAttributes("Course AI Assistant / LLM / " + project.getLocationHash(), "llm");
+        return new CredentialAttributes("Course AI Assistant / LLM / global", "llm");
     }
 
     public static String read(Project project) {

@@ -4,6 +4,15 @@ IntelliJ IDEA plugin for CST3492 Assignment A, Group C (F0 + F2).
 
 ## Current status
 
+Model/embedding connections, Password Safe credentials, course materials and the index
+are shared across all projects in this IDE. Configure them once in Settings > Tools >
+Course AI Assistant. After this update, re-enter both connections/keys and add materials
+once; old project data is left untouched and is not automatically imported.
+Global course data is stored under the IDE configuration directory at
+`course-ai-assistant/.course-ai/`. Chat history and modification requests remain project-local.
+See [global settings review](docs/integration-global-settings-review.md).
+
+
 The Tool Window uses right-aligned **Chat** and **Course materials** icon navigation,
 with Clear chat next to Chat. The welcome screen describes course Q&A, selected-code
 questions and reviewed code changes. Configure **Language model** and **Course RAG**
@@ -33,7 +42,7 @@ show original chunks and retrieval metadata, not the embedding vector arrays.
 There is one question composer in Chat. The independent retrieval UI and its dedicated
 implementation have been removed. Chat history is display-only and remains in memory.
 Retrieval failure is an error; only successful no-match retrieval discloses general knowledge.
-F2 retains its existing explicit model configuration until I4. See the
+F2 now shares global Language model settings with Chat. Model setting changes cancel pending generation and review; RAG changes leave F2 independent. Only explicit Diff approval applies a single-file change. See the
 [UI / automatic indexing review](docs/integration-i3-review.md), [I2 review](docs/integration-i2-review.md)
 and [integration plan](docs/integration-plan.md). Real-provider / IDE acceptance remains pending.
 
@@ -92,7 +101,7 @@ instrumentation outputs: `.\gradlew.bat clean buildPlugin verifyPluginProjectCon
 2. Wait for the separate development IDEA to open.
 3. Open a small Java project in that IDEA.
 4. Select **View > Tool Windows > Course AI Assistant** (ID: `CourseAiAssistant`).
-5. Configure **Language model** and **Course RAG** in project Settings, including their respective keys.
+5. Configure **Language model** and **Course RAG** in IDE Settings, including their respective keys.
 6. Add course files in **Course materials** and wait for automatic indexing, then ask a question in **Chat**. No example selector or fixed sample answers appear in this entry.
 7. Close the development IDEA to finish `runIde`.
 

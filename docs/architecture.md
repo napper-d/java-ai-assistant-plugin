@@ -1,3 +1,5 @@
+> I4 更新（2026-10-29）：正式 F2 入口使用 ProjectLlmService 与 Language model 设置，不再选择 .env 目录。配置变化会使生成及待批准审阅失效。以下旧 .env 接线说明仅为历史或显式开发工具用途。详见 [I4 审阅](integration-i4-review.md)。
+
 > RAG merge update (2026-10-29): duplicate registration returns MaterialRegistrationResult;
 > the current compact materials UI keeps automatic indexing and current Chat integration.
 > Legacy RAG CLI and multi-step retrieval are removed. dotenv remains for the existing F2 entry until I4.

@@ -12,7 +12,7 @@ public final class RagCredentials {
     private RagCredentials() {}
 
     private static CredentialAttributes attributes(Project project) {
-        return new CredentialAttributes("Course AI Assistant / RAG / " + project.getLocationHash(), "embedding");
+        return new CredentialAttributes("Course AI Assistant / RAG / global", "embedding");
     }
 
     public static String read(Project project) {

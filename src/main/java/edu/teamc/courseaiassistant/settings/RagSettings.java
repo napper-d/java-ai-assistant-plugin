@@ -11,6 +11,12 @@ import java.time.Duration;
 @Service(Service.Level.PROJECT)
 @State(name = "CourseAiRagSettings", storages = @Storage(StoragePathMacros.WORKSPACE_FILE))
 public final class RagSettings implements PersistentStateComponent<RagSettings.State> {
+    /** Legacy project state is retained for compatibility; production consumers use IDE-global settings. */
+    public static RagSettings getInstance(com.intellij.openapi.project.Project project) {
+        var global = GlobalConfiguration.available();
+        return global == null ? project.getService(RagSettings.class) : global.rag();
+    }
+
     public static final class State {
         public String baseUrl = "";
         public String model = "";

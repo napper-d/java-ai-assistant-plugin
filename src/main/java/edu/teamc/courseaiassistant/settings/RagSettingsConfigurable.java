@@ -23,6 +23,7 @@ public final class RagSettingsConfigurable implements SearchableConfigurable {
     private JCheckBox removePassword;
     private JCheckBox notes;
 
+    public RagSettingsConfigurable() { this(GlobalConfiguration.settingsProject()); }
     public RagSettingsConfigurable(Project project) { this.project = project; }
 
     @Override public @NotNull String getId() { return "edu.teamc.courseaiassistant.rag"; }
@@ -40,8 +41,8 @@ public final class RagSettingsConfigurable implements SearchableConfigurable {
         removePassword = new JCheckBox();
         removePassword.setName("ragClearApiKey");
         SettingsForm.credentials(form, password, removePassword);
-        addRow(form, "Data", new JLabel("Current project / .course-ai / default"));
-        SettingsForm.comment(form, "Saving does not build an index or contact a model.");
+        addRow(form, "Data", new JLabel("Shared across all projects"));
+        SettingsForm.comment(form, "Shared across all projects. Saving does not contact a model.");
 
         JPanel advanced = SettingsForm.form();
         field(advanced, "timeoutMillis", "HTTP request timeout (ms)");
@@ -98,7 +99,7 @@ public final class RagSettingsConfigurable implements SearchableConfigurable {
         try {
             if (key.length > 0 || removePassword.isSelected()) return true;
             var path = ProjectRagService.projectRoot(project);
-            return !readForm().toConfig(path, "").equals(project.getService(RagSettings.class).getState().toConfig(path, ""));
+            return !readForm().toConfig(path, "").equals(RagSettings.getInstance(project).getState().toConfig(path, ""));
         } catch (RuntimeException invalid) { return true; }
         finally { Arrays.fill(key, '\0'); }
     }
@@ -123,9 +124,14 @@ public final class RagSettingsConfigurable implements SearchableConfigurable {
             // A synchronous modal progress task lets Apply report OS key-store failures without EDT I/O.
             boolean completed = ProgressManager.getInstance().runProcessWithProgressSynchronously(() -> {
                 try {
-                    if (project.isDisposed()) throw new IllegalStateException("Project closed");
+                    if (project != null && project.isDisposed()) throw new IllegalStateException("Project closed");
+                    var configuration = GlobalConfiguration.available();
+                    synchronized (configuration == null ? this : configuration.credentialsLock()) {
                     if (clear || key.length > 0) RagCredentials.write(project, key);
-                    project.getService(ProjectRagService.class).updateSettings(next);
+                    if (GlobalConfiguration.available() != null) com.intellij.openapi.application.ApplicationManager.getApplication()
+                            .getService(edu.teamc.courseaiassistant.application.GlobalRagLibrary.class).updateSettings(next);
+                    else project.getService(ProjectRagService.class).updateSettings(next);
+                    }
                 } catch (RuntimeException error) { failure.set(error); }
             }, "Saving Course RAG settings", false, project);
             if (!completed || failure.get() != null) {
@@ -137,7 +143,7 @@ public final class RagSettingsConfigurable implements SearchableConfigurable {
 
     @Override public void reset() {
         if (root == null) return;
-        var state = project.getService(RagSettings.class).getState();
+        var state = RagSettings.getInstance(project).getState();
         fields.get("baseUrl").setText(state.baseUrl); fields.get("model").setText(state.model);
         fields.get("timeoutMillis").setText(Integer.toString(state.timeoutMillis));
         fields.get("dimensions").setText(Integer.toString(state.dimensions));

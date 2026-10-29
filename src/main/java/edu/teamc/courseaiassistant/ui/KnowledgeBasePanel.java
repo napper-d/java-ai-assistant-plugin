@@ -35,6 +35,7 @@ public final class KnowledgeBasePanel extends JPanel {
     private final JLabel status=new ChatWidgets.Label("",-1,false,true);
     private final JProgressBar progress=new JProgressBar();
     private final Runnable unsubscribe;
+    private final Runnable unsubscribeLibrary;
     private KnowledgeBaseSnapshot snapshot;
     private CompletableFuture<?> pending;
     private String registrationNotice;
@@ -77,6 +78,9 @@ public final class KnowledgeBasePanel extends JPanel {
             if(disposed) return;
             generation++; if(pending!=null) pending.cancel(true); pending=null; busy=false;
             snapshot=null; refresh();
+        }));
+        unsubscribeLibrary=operations.onLibraryChanged(() -> SwingUtilities.invokeLater(() -> {
+            if(!disposed&&!busy) refresh();
         }));
         refresh();
     }
@@ -194,7 +198,7 @@ public final class KnowledgeBasePanel extends JPanel {
         retry.setEnabled(!disposed&&!busy); files.setEnabled(!disposed&&!busy);
     }
     public void dispose() {
-        disposed=true; generation++; unsubscribe.run(); if(pending!=null) pending.cancel(true);
+        disposed=true; generation++; unsubscribe.run(); unsubscribeLibrary.run(); if(pending!=null) pending.cancel(true);
         pending=null; busy=false;
     }
     private static final class MaterialsTable extends AbstractTableModel {

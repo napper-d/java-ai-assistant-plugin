@@ -21,6 +21,7 @@ public final class LlmSettingsConfigurable implements SearchableConfigurable {
     private JPasswordField password;
     private JCheckBox removePassword;
 
+    public LlmSettingsConfigurable() { this(GlobalConfiguration.settingsProject()); }
     public LlmSettingsConfigurable(Project project) { this.project = project; }
     @Override public @NotNull String getId() { return "edu.teamc.courseaiassistant.llm"; }
     @Override public String getDisplayName() { return "Language model"; }
@@ -37,7 +38,7 @@ public final class LlmSettingsConfigurable implements SearchableConfigurable {
         removePassword = new JCheckBox();
         removePassword.setName("llmClearApiKey");
         SettingsForm.credentials(form, password, removePassword);
-        SettingsForm.comment(form, "Saving does not build an index or contact a model.");
+        SettingsForm.comment(form, "Shared across all projects. Saving does not contact a model.");
         JPanel advanced = SettingsForm.form();
         field(advanced, "timeoutMillis", "Retrieval and generation timeout (ms)");
         field(advanced, "maxOutputTokens", "Maximum output tokens");
@@ -80,7 +81,7 @@ public final class LlmSettingsConfigurable implements SearchableConfigurable {
         try {
             if (key.length > 0 || removePassword.isSelected()) return true;
             var draft = readForm();
-            var saved = project.getService(LlmSettings.class).getState();
+            var saved = LlmSettings.getInstance(project).getState();
             return !draft.baseUrl.equals(saved.baseUrl) || !draft.model.equals(saved.model)
                     || draft.timeoutMillis != saved.timeoutMillis || draft.maxOutputTokens != saved.maxOutputTokens
                     || draft.maxInputCharacters != saved.maxInputCharacters;
@@ -103,9 +104,13 @@ public final class LlmSettingsConfigurable implements SearchableConfigurable {
             AtomicReference<RuntimeException> failure = new AtomicReference<>();
             boolean completed = ProgressManager.getInstance().runProcessWithProgressSynchronously(() -> {
                 try {
-                    if (project.isDisposed()) throw new IllegalStateException("Project closed");
+                    if (project != null && project.isDisposed()) throw new IllegalStateException("Project closed");
+                    var configuration = GlobalConfiguration.available();
+                    synchronized (configuration == null ? this : configuration.credentialsLock()) {
                     if (clear || key.length > 0) LlmCredentials.write(project, key);
-                    project.getService(ProjectLlmService.class).updateSettings(next);
+                    if (GlobalConfiguration.available() != null) GlobalConfiguration.available().updateLlm(next);
+                    else project.getService(ProjectLlmService.class).updateSettings(next);
+                    }
                 } catch (RuntimeException error) { failure.set(error); }
             }, "Saving language model settings", false, project);
             if (!completed || failure.get() != null)
@@ -116,7 +121,7 @@ public final class LlmSettingsConfigurable implements SearchableConfigurable {
 
     @Override public void reset() {
         if (root == null) return;
-        var state = project.getService(LlmSettings.class).getState();
+        var state = LlmSettings.getInstance(project).getState();
         fields.get("baseUrl").setText(state.baseUrl); fields.get("model").setText(state.model);
         fields.get("timeoutMillis").setText(Integer.toString(state.timeoutMillis));
         fields.get("maxOutputTokens").setText(Integer.toString(state.maxOutputTokens));
