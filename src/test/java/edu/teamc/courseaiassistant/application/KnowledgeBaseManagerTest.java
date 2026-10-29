@@ -17,13 +17,30 @@ import static org.junit.jupiter.api.Assertions.*;
 class KnowledgeBaseManagerTest {
     @TempDir Path root;
 
+    @Test void failedReindexOfRegisteredPathBlocksStaleChatEvidence() throws Exception {
+        try (Fixture fixture = new Fixture()) {
+            Path source = pdf(root.resolve("lecture.pdf"));
+            get(fixture.manager.registerMaterials(List.of(source)));
+            get(fixture.manager.rebuildLibrary());
+            assertEquals(0, get(fixture.manager.registerMaterials(List.of(source))).addedFiles());
+            Files.writeString(source, "Changed to invalid PDF contents");
+            assertReason(RagException.Reason.DOCUMENT_ERROR, fixture.manager.rebuildLibrary());
+            assertEquals(NEEDS_REBUILD, get(fixture.manager.refreshLibrary()).indexState());
+            assertReason(RagException.Reason.INDEX_INCOMPATIBLE,
+                    fixture.manager.searchIfCurrent(() -> fixture.search.search("inheritance", 5)));
+        }
+    }
+
     @Test void managesSameNamePathsAndDuplicatesWithoutEmbeddingCalls() throws Exception {
         try (Fixture fixture = new Fixture()) {
             assertEquals(NO_INDEX, get(fixture.manager.refreshLibrary()).indexState());
             Path a = Files.writeString(Files.createDirectories(root.resolve("a")).resolve("week.pdf"), "registration only");
             Path b = Files.writeString(Files.createDirectories(root.resolve("b")).resolve("week.pdf"), "another registration");
-            var state = get(fixture.manager.registerMaterials(List.of(a, b, a)));
+            var registration = get(fixture.manager.registerMaterials(List.of(a, b, a)));
+            var state = registration.snapshot();
             assertEquals(2, state.documents().size());
+            assertEquals(2, registration.addedFiles());
+            assertEquals(List.of(a.toRealPath()), registration.alreadyRegistered());
             assertNotEquals(state.documents().get(0).documentId(), state.documents().get(1).documentId());
             assertEquals(0, fixture.embeddings.calls.get());
             assertEquals(0, get(fixture.manager.unregisterMaterials(List.of(a, b))).documents().size());
@@ -37,6 +54,14 @@ class KnowledgeBaseManagerTest {
             get(fixture.manager.registerMaterials(List.of(source)));
             var ready = get(fixture.manager.rebuildLibrary());
             assertEquals(AVAILABLE, ready.indexState()); assertEquals(1, ready.chunks()); assertEquals(1, ready.indexedDocuments());
+            int calls = fixture.embeddings.calls.get();
+            String manifest = Files.readString(fixture.config.indexDirectory().resolve("manifest.json"));
+            var repeated = get(fixture.manager.registerMaterials(List.of(source, source)));
+            assertEquals(0, repeated.addedFiles());
+            assertEquals(List.of(source.toRealPath()), repeated.alreadyRegistered());
+            assertEquals(AVAILABLE, repeated.snapshot().indexState());
+            assertEquals(calls, fixture.embeddings.calls.get());
+            assertEquals(manifest, Files.readString(fixture.config.indexDirectory().resolve("manifest.json")));
             var removed = get(fixture.manager.unregisterMaterials(List.of(source)));
             assertEquals(NEEDS_REBUILD, removed.indexState()); assertEquals(0, removed.documents().size());
             assertEquals(1, removed.chunks()); assertTrue(Files.exists(source));
@@ -105,7 +130,8 @@ class KnowledgeBaseManagerTest {
             assertReason(RagException.Reason.STORAGE_ERROR, fixture.manager.refreshLibrary());
             assertTrue(pending.cancel(true));
             assertThrows(CancellationException.class, () -> embedding.get(5, TimeUnit.SECONDS));
-            assertEquals(AVAILABLE, get(fixture.manager.refreshLibrary()).indexState());
+            // The old disk snapshot survives, but a cancelled refresh is not current Chat evidence.
+            assertEquals(NEEDS_REBUILD, get(fixture.manager.refreshLibrary()).indexState());
             assertEquals(original, Files.readString(fixture.config.indexDirectory().resolve("manifest.json")));
             fixture.embeddings.block.set(false);
             assertEquals(AVAILABLE, get(fixture.manager.rebuildLibrary()).indexState());

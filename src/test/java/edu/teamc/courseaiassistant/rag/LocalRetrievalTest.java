@@ -44,6 +44,27 @@ class LocalRetrievalTest {
         assertFalse(Files.readString(config.indexDirectory().resolve("manifest.json")).contains("test-key"));
     }
 
+    @Test void numberedTextUsesOneQueryEmbeddingAndTheSemanticThreshold() throws Exception {
+        var config = RagTestSupport.config(root);
+        var embeddings = new RagTestSupport.Embeddings();
+        Path source = RagTestSupport.pdf(root.resolve("requirements.pdf"),
+                "Group C covers F0 inheritance.", "F0: database transactions.");
+        try (var indexer = new CourseIndexer(config, embeddings)) {
+            indexer.importFiles(List.of(source)).get(10, TimeUnit.SECONDS);
+            indexer.rebuild().get(10, TimeUnit.SECONDS);
+        }
+        try (var search = new LocalKnowledgeSearch(config, embeddings)) {
+            var matches = search.search("inheritance", 5).get(10, TimeUnit.SECONDS);
+            assertEquals(1, matches.size());
+            assertEquals(1, matches.getFirst().getSource().getPageStart());
+            assertTrue(matches.getFirst().getScore() >= config.minScore());
+            assertEquals(1, embeddings.queries.get());
+            assertTrue(search.search("F0", 5).get(10, TimeUnit.SECONDS).isEmpty());
+            assertEquals(2, embeddings.queries.get());
+            assertEquals(2, embeddings.documents.get());
+        }
+    }
+
     @Test void missingIndexInvalidInputsAndWrongModelAreFailuresRatherThanEmptyMatches() throws Exception {
         var config = RagTestSupport.config(root);
         var embeddings = new RagTestSupport.Embeddings();

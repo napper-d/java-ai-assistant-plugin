@@ -216,7 +216,7 @@ class LiveChatIntegrationTest {
             });
             server.start();
             String endpoint = "http://127.0.0.1:" + server.getAddress().getPort() + "/v1";
-            var rs = ragSettings.getState(); rs.baseUrl = endpoint; rs.model = "fixture-embedding"; rs.dimensions = 2; rs.multiStepEnabled = false;
+            var rs = ragSettings.getState(); rs.baseUrl = endpoint; rs.model = "fixture-embedding"; rs.dimensions = 2;
             ragSettings.loadState(rs);
             var ls = llmSettings.getState(); ls.baseUrl = endpoint; ls.model = "fixture-chat"; ls.timeoutMillis = 6000; llmSettings.loadState(ls);
             project = (Project) Proxy.newProxyInstance(Project.class.getClassLoader(), new Class<?>[]{Project.class}, (proxy, method, args) -> switch (method.getName()) {

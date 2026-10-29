@@ -1,3 +1,7 @@
+> RAG merge update (2026-10-29): duplicate registration returns MaterialRegistrationResult;
+> the current compact materials UI keeps automatic indexing and current Chat integration.
+> Legacy RAG CLI and multi-step retrieval are removed. dotenv remains for the existing F2 entry until I4.
+
 # Architecture and Ownership — Stage 4
 
 > Current UI update: Chat and Course materials share one icon navigation surface;
@@ -24,9 +28,8 @@ questions) and F2 (instruction-driven changes reviewed in the built-in Diff View
 before application). Stages 2–4 implement the Java chat Tool Window, selected-code
 snapshots and asynchronous request coordination. The default adapter is still a
 visibly marked MockChatService. The RAG package is available as a standalone adapter
-with original-path PDF/PPTX registration, online embeddings, persisted local search
-and bounded multi-step retrieval. Query planning is pluggable; the default expands
-explicit identifiers and the chat owner may supply model-based planning. Real-provider
+with original-path PDF/PPTX registration, online embeddings and persisted local
+vector search filtered by the configured similarity threshold. Real-provider
 acceptance, live chat integration and modification review/apply services remain pending.
 The standalone Member 3 LLM adapters are documented in the update above.
 The R1-R3 GUI adaptation provides project settings and a Course materials tab.

@@ -4,11 +4,11 @@
 
 ## 1. 实现内容
 
-- Settings > Tools > Course AI Assistant > Course RAG：固定现有 OpenAI-compatible Embeddings 协议，配置服务基础地址、模型和新密钥。高级区可展开 HTTP 时限、维度、分块/重叠、批量大小、阈值、PPTX 备注、输入前缀和多步查询预算。
+- Settings > Tools > Course AI Assistant > Course RAG：固定现有 OpenAI-compatible Embeddings 协议，配置服务基础地址、模型和新密钥。高级区可展开 HTTP 时限、维度、分块/重叠、批量大小、阈值、PPTX 备注和输入前缀。
 - 未填写基础地址/模型/密钥可以保存未就绪配置；已填写的地址及数值必须合法。基础地址不包含 `/embeddings`。保存不触发网络请求或索引构建。
 - 普通参数存入当前项目本地 workspace；不存在 API Key 状态字段。API Key 通过项目隔离的 PasswordSafe 条目存取，不回填设置表单。留空保留、输入替换、显式选项清除。
 - PasswordSafe 写入通过后台进度任务完成，失败反馈给 Apply；读取延迟到建库/查询真正需要 Embedding 时，且禁止 EDT 调用。密钥跨重启持久化能力取决于用户 IDE Password Safe 的存储模式；插件不绕过其仅内存配置。
-- `ProjectRagService` 按需组装 RAG 会话，直接使用当前项目根目录，不加载 `.env`。登记资料不要求 API Key。固定使用 `.course-ai` 数据目录和 `default` 课程库。
+- `ProjectRagService` 从项目设置与 PasswordSafe 按需组装 RAG 会话，直接使用当前项目根目录。登记资料不要求 API Key。固定使用 `.course-ai` 数据目录和 `default` 课程库。
 - 检索与索引共享同一个惰性 HTTP 客户端。保存配置后取消旧会话，后续操作使用新参数；不删除或自动重建原索引。项目关闭时依序关闭检索、索引、共享客户端；隐藏侧栏不会释放项目服务。
 - 直接返回核心模块的可取消 future，保留已有取消桥接。R2 再实现重建与刷新等复合任务的取消/状态交付。
 - 设置搜索索引已重新启用；聊天仍使用原 Mock 与 Sample 标识，选中代码功能保持原接线。
@@ -54,7 +54,7 @@
 1. 在插件仓库使用 JDK 21 运行 `.\gradlew.bat runIde`；打开独立的本地 Java 示例项目。
 2. 在 Settings > Tools > Course AI Assistant > Course RAG 打开设置。确认初始基础地址/模型/密钥为空；高级默认分块 800、重叠 120、批量 16、时限 20000ms、阈值 0.75。
 3. 不填密钥，修改模型或高级参数，Apply 后关闭再打开；确认参数保留，API Key 框仍为空。Apply 不应建库或发送网络请求。
-4. 依次输入无效地址、0ms 时限、重叠不小于分块、超范围阈值和查询预算；确认阻止保存并有可理解提示。Reset 恢复已保存值。
+4. 依次输入无效地址、0ms 时限、重叠不小于分块和超范围阈值；确认阻止保存并有可理解提示。Reset 恢复已保存值。
 5. 使用测试密钥验证替换；再次打开并留空 Apply，确认保留行为；勾选 Clear the stored API key 再 Apply 验证清除。此阶段没有真实联网入口，可使用调试器在后台读取或 IDE Password Safe 存储检查；真实建库/查询验证留待 R2/R3，不把空白输入框当作已清除密钥的证据。
 6. 重开项目检查普通配置保留；打开另一个项目，确认参数独立。API Key 的跨重启行为同时核对 IDE Settings > Appearance & Behavior > System Settings > Passwords 的存储模式。
 7. 打开 Course AI Assistant，确认聊天仍为 Sample、示例引用仍标明虚构；选中 Java 代码后右键提问仍能附上原有上下文。

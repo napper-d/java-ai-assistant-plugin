@@ -13,6 +13,11 @@ public final class MaterialUpdateTask {
     }
     public static CompletableFuture<KnowledgeBaseSnapshot> start(KnowledgeBaseOperations operations,
                     List<Path> paths, boolean remove, java.util.function.Consumer<KnowledgeBaseSnapshot> onRegistered) {
+        return start(operations, paths, remove, onRegistered, ignored -> {});
+    }
+    public static CompletableFuture<KnowledgeBaseSnapshot> start(KnowledgeBaseOperations operations,
+                    List<Path> paths, boolean remove, java.util.function.Consumer<KnowledgeBaseSnapshot> onRegistered,
+                    java.util.function.Consumer<MaterialRegistrationResult> onRegistrationResult) {
         class Update extends CompletableFuture<KnowledgeBaseSnapshot> {
             CompletableFuture<?> active;
             synchronized void attach(CompletableFuture<?> child) {
@@ -36,9 +41,22 @@ public final class MaterialUpdateTask {
         }
         Update result = new Update();
         try {
-            var registration = remove ? operations.unregisterMaterials(List.copyOf(paths)) : operations.registerMaterials(List.copyOf(paths));
-            result.attach(registration);
-            registration.whenComplete((value, error) -> { if (error != null) result.completeExceptionally(error); else result.index(value); });
+            if (remove) {
+                var registration = operations.unregisterMaterials(List.copyOf(paths));
+                result.attach(registration);
+                registration.whenComplete((value, error) -> { if (error != null) result.completeExceptionally(error); else result.index(value); });
+            } else {
+                var registration = operations.registerMaterials(List.copyOf(paths));
+                result.attach(registration);
+                registration.whenComplete((value, error) -> {
+                    synchronized (result) {
+                        if (result.isDone()) return;
+                        if (error != null) { result.completeExceptionally(error); return; }
+                        try { onRegistrationResult.accept(value); result.index(value.snapshot()); }
+                        catch (RuntimeException failure) { result.completeExceptionally(failure); }
+                    }
+                });
+            }
         } catch (RuntimeException error) { result.completeExceptionally(error); }
         return result;
     }

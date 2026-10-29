@@ -15,7 +15,8 @@ Chat cannot use the old index. Opening the window loads saved state automaticall
 The page is a filename list: use the plus icon to add files, a row’s trash icon to remove it,
 and the top-right gear to open Course RAG settings. Loading/indexing is shown by a top
 progress bar. Failure-only feedback and a retry icon replace permanent status panels.
-There are no Refresh / Load, Rebuild or Update materials controls.
+There are no Refresh / Load, Rebuild or Update materials controls. Re-adding a registered
+file shows a compact duplicate notice and refreshes the index from the original contents.
 Saving settings alone does not make provider calls. If configuration is incomplete,
 files remain registered and the materials page explains how to finish indexing.
 

@@ -7,14 +7,7 @@ import java.util.Objects;
 
 public record RagConfig(Path projectRoot, Path dataDirectory, String corpusId, int chunkCharacters,
                         int overlapCharacters, int batchSize, double minScore, boolean includeSlideNotes,
-                        EmbeddingSettings embedding, RetrievalSettings retrieval) {
-    public RagConfig(Path projectRoot, Path dataDirectory, String corpusId, int chunkCharacters,
-                     int overlapCharacters, int batchSize, double minScore, boolean includeSlideNotes,
-                     EmbeddingSettings embedding) {
-        this(projectRoot, dataDirectory, corpusId, chunkCharacters, overlapCharacters, batchSize,
-                minScore, includeSlideNotes, embedding, RetrievalSettings.defaults());
-    }
-
+                        EmbeddingSettings embedding) {
     public RagConfig {
         projectRoot = Objects.requireNonNull(projectRoot).toAbsolutePath().normalize();
         dataDirectory = Objects.requireNonNull(dataDirectory);
@@ -30,7 +23,6 @@ public record RagConfig(Path projectRoot, Path dataDirectory, String corpusId, i
             throw new IllegalArgumentException("Batch size must be 1-128 and minimum score must be in [0, 1].");
         }
         Objects.requireNonNull(embedding);
-        Objects.requireNonNull(retrieval);
     }
 
     /** Stores the original-path registry only; course files remain at their original locations. */
@@ -38,22 +30,6 @@ public record RagConfig(Path projectRoot, Path dataDirectory, String corpusId, i
     public Path indexDirectory() { return dataDirectory.resolve("indexes").resolve(corpusId); }
     public String splitterFingerprint() {
         return ChunkSplitter.STRATEGY_ID + ":" + chunkCharacters + ":" + overlapCharacters + ":notes=" + includeSlideNotes;
-    }
-
-    /** Search-time settings do not affect persisted embeddings or the splitter fingerprint. */
-    public record RetrievalSettings(boolean enabled, int maxRounds, int maxQueries, String referencePattern) {
-        public static final String DEFAULT_REFERENCE_PATTERN =
-                "(?<![\\p{IsLatin}\\p{N}_])(?:[A-Z]{1,12}[-_]?\\d{1,6}(?:[._-]\\d{1,6})*|\\d{1,3}(?:\\.\\d{1,3}){1,4})(?![\\p{IsLatin}\\p{N}_])";
-        public RetrievalSettings {
-            if (maxRounds < 1 || maxRounds > 4 || maxQueries < 1 || maxQueries > 16) {
-                throw new IllegalArgumentException("Multi-step rounds must be 1-4 and follow-up query budget must be 1-16.");
-            }
-            referencePattern = referencePattern == null || referencePattern.isBlank() ? DEFAULT_REFERENCE_PATTERN : referencePattern;
-            if (referencePattern.length() > 2048) throw new IllegalArgumentException("Reference pattern is too long.");
-            java.util.regex.Pattern compiled = java.util.regex.Pattern.compile(referencePattern, java.util.regex.Pattern.CASE_INSENSITIVE);
-            if (compiled.matcher("").find()) throw new IllegalArgumentException("Reference pattern cannot match empty text.");
-        }
-        public static RetrievalSettings defaults() { return new RetrievalSettings(true, 2, 8, DEFAULT_REFERENCE_PATTERN); }
     }
 
     /** Never include the credential in logging, fingerprints or persisted manifests. */

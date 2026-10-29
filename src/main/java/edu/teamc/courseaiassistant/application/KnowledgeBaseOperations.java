@@ -8,7 +8,7 @@ import edu.teamc.courseaiassistant.model.KnowledgeChunk;
 /** UI-facing material operations; all file/network work runs outside Swing. */
 public interface KnowledgeBaseOperations {
     CompletableFuture<KnowledgeBaseSnapshot> refreshLibrary();
-    CompletableFuture<KnowledgeBaseSnapshot> registerMaterials(List<Path> paths);
+    CompletableFuture<MaterialRegistrationResult> registerMaterials(List<Path> paths);
     CompletableFuture<KnowledgeBaseSnapshot> unregisterMaterials(List<Path> paths);
     CompletableFuture<KnowledgeBaseSnapshot> rebuildLibrary();
     CompletableFuture<List<KnowledgeChunk>> search(String query, int maxResults);

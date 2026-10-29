@@ -17,6 +17,23 @@ class KnowledgeBasePanelTest {
     private static final Path FILE=Path.of("lecture.pdf").toAbsolutePath();
     private static final RegisteredDocument DOCUMENT=new RegisteredDocument("doc","lecture.pdf",FILE,Availability.MISSING);
 
+    @Test void duplicateNoticeUsesCompactToolbarAndStillRefreshesOriginalContents() throws Exception {
+        try (Fixture f = new Fixture()) {
+            complete(f.next("refresh"), snapshot(List.of(DOCUMENT), AVAILABLE, true));
+            edt(() -> f.button("addMaterials").doClick(0));
+            f.next("register").future.complete(new MaterialRegistrationResult(
+                    snapshot(List.of(DOCUMENT), AVAILABLE, true), 0, List.of(FILE)));
+            flush();
+            complete(f.next("rebuild"), snapshot(List.of(DOCUMENT), AVAILABLE, true));
+            edt(() -> {
+                assertEquals(1, f.table().getRowCount());
+                assertEquals("Already added", f.text("libraryStatus"));
+                assertTrue(((JLabel) named(f.panel, "libraryStatus")).getToolTipText().contains(FILE.toString()));
+                assertFalse(named(f.panel, "indexingProgress").isVisible());
+            });
+        }
+    }
+
     @Test void listShowsFilenameOnlyAndRowTrashCapturesOriginalPath() throws Exception {
         try(Fixture f=new Fixture()) {
             complete(f.next("refresh"),snapshot(List.of(),NO_INDEX,false));
@@ -122,19 +139,20 @@ class KnowledgeBasePanelTest {
         return new KnowledgeBaseSnapshot(documents, state, state == NO_INDEX ? 0 : 1, state == NO_INDEX ? 0 : 4,
                 configured, "Saved file contents are not checked until an explicit rebuild.");
     }
-    private record Call(String kind, List<Path> paths, CompletableFuture<KnowledgeBaseSnapshot> future) {}
+    private record Call(String kind, List<Path> paths, CompletableFuture<Object> future) {}
     static final class Backend implements KnowledgeBaseOperations {
         final BlockingQueue<Call> calls = new LinkedBlockingQueue<>();
         final AtomicReference<Runnable> listener = new AtomicReference<>();
         boolean stickyNext;
-        private CompletableFuture<KnowledgeBaseSnapshot> call(String name, List<Path> paths) {
-            CompletableFuture<KnowledgeBaseSnapshot> future = stickyNext ? new CompletableFuture<>() {
+        @SuppressWarnings("unchecked") // The call queue deliberately erases the backend operation's result type.
+        private <T> CompletableFuture<T> call(String name, List<Path> paths) {
+            CompletableFuture<T> future = stickyNext ? new CompletableFuture<>() {
                 @Override public boolean cancel(boolean interrupt) { return false; }
             } : new CompletableFuture<>();
-            stickyNext = false; calls.add(new Call(name, paths, future)); return future;
+            stickyNext = false; calls.add(new Call(name, paths, (CompletableFuture<Object>)(CompletableFuture<?>)future)); return future;
         }
         @Override public CompletableFuture<KnowledgeBaseSnapshot> refreshLibrary() { return call("refresh", List.of()); }
-        @Override public CompletableFuture<KnowledgeBaseSnapshot> registerMaterials(List<Path> paths) { return call("register", paths); }
+        @Override public CompletableFuture<MaterialRegistrationResult> registerMaterials(List<Path> paths) { return call("register", paths); }
         @Override public CompletableFuture<KnowledgeBaseSnapshot> unregisterMaterials(List<Path> paths) { return call("remove", paths); }
         @Override public CompletableFuture<KnowledgeBaseSnapshot> rebuildLibrary() { return call("rebuild", List.of()); }
         @Override public CompletableFuture<List<edu.teamc.courseaiassistant.model.KnowledgeChunk>> search(String query, int maxResults) {
@@ -155,7 +173,7 @@ class KnowledgeBasePanelTest {
         String text(String name) { return ((JLabel) named(panel, name)).getText(); }
         @Override public void close() throws Exception { edt(() -> panel.dispose()); }
     }
-    private static void complete(Call call, KnowledgeBaseSnapshot state) throws Exception { call.future.complete(state); flush(); }
+    private static void complete(Call call, KnowledgeBaseSnapshot state) throws Exception { call.future.complete(call.kind.equals("register") ? new MaterialRegistrationResult(state, 1, List.of()) : state); flush(); }
     private static void flush() throws Exception { edt(() -> {}); }
     private static void edt(Runnable action) throws Exception { SwingUtilities.invokeAndWait(action); }
     private static Component named(Component parent, String name) {

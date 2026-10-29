@@ -25,7 +25,9 @@ The separate Course materials tab calls ProjectRagService through
 KnowledgeBaseOperations for registry management and rebuild/reload; it displays
 KnowledgeBaseSnapshot values and never turns them into ChatAnswer results.
 Project-level material changes use only these managed operations, preserving
-serialization, index state and preview invalidation notifications.
+serialization, index state and Chat invalidation notifications.
+Registration returns MaterialRegistrationResult with the snapshot, added-file count
+and resolved duplicate paths; MaterialUpdateTask bridges it to the automatic indexing workflow.
 Retrieval preview calls the same project's `search(query, 5)` and displays the
 returned KnowledgeChunk/SourceReference values directly. Its settings/library
 subscriptions invalidate results without automatically issuing new queries.
@@ -45,7 +47,7 @@ agreement and Stage 5 integration; their existence does not imply F2 is implemen
 | --- | --- |
 | `CodeContext` | Project-relative path (absolute for an external file), language ID, selected text, inclusive one-based start/end lines, document modification stamp, optional bounded surrounding text. The collector supplies no surrounding text. |
 | `SourceReference` | Reference ID, document name, optional page start/end or scope. At least page or scope is required. Equal start/end pages display as one page. |
-| `KnowledgeChunk` | Chunk ID, source, text and score in [0, 1]. Local RAG uses original-question `(cosine + 1) / 2`, including for multi-step evidence. Explicitly expanded definitions may score below the provisional 0.75 semantic threshold; see the RAG guide. |
+| `KnowledgeChunk` | Chunk ID, source, text and score in [0, 1]. Local RAG uses question-to-passage `(cosine + 1) / 2` and filters by the configured semantic threshold; see the RAG guide. |
 | `ChatRequest` | Generated request ID, question, nullable CodeContext. No conversation history is currently submitted. |
 | `ChatAnswer` | Same request ID, answer, immutable sources, provenance (`COURSE_GROUNDED` / `GENERAL_KNOWLEDGE`), optional disclosure. |
 | `ServiceFailure` | Request ID, category, safe user-facing message and retryability; extends Exception. |
@@ -132,10 +134,7 @@ coordinates chat only; the modification UI and lifecycle are Stage 5 work.
   and real materials; agree on identity, no-match threshold and integration. RAG
   failures use RagException; ChatService maps them to ServiceFailure with its real
   request ID. See the RAG guide for the proposed mapping and local index format.
-  Multi-step execution accepts an optional asynchronous FollowUpQueryPlanner;
-  the default expands explicit identifiers within each triggering evidence document
-  and preserves that evidence alongside its definitions within the result budget.
-  Member 3 may supply model-based planning, owning that client's lifecycle.
+  Each search embeds the submitted question once, applying the threshold and result limit.
 - Member 3: standalone ChatService / CodeGenerationService adapters are now implemented
   in `llm`; validate the chosen provider and agree on IDE configuration and assembly.
   See [LLM services](llm-services.md) for timeouts, safe failures, citation validation

@@ -37,6 +37,7 @@ public final class KnowledgeBasePanel extends JPanel {
     private final Runnable unsubscribe;
     private KnowledgeBaseSnapshot snapshot;
     private CompletableFuture<?> pending;
+    private String registrationNotice;
     private long generation;
     private boolean busy, disposed;
 
@@ -131,6 +132,10 @@ public final class KnowledgeBasePanel extends JPanel {
         return MaterialUpdateTask.start(operations,paths,remove,registered -> SwingUtilities.invokeLater(() -> {
             if(disposed||token!=generation||!busy) return;
             snapshot=registered;model.documents=registered.documents();model.fireTableDataChanged();
+        }), result -> SwingUtilities.invokeLater(() -> {
+            if(disposed||token!=generation||!busy||result.alreadyRegistered().isEmpty()) return;
+            registrationNotice="Already registered: " + String.join(", ",
+                    result.alreadyRegistered().stream().map(Path::toString).toList());
         }));
     }
     private void refresh() { run("Loading…",operations::refreshLibrary,false); }
@@ -141,7 +146,7 @@ public final class KnowledgeBasePanel extends JPanel {
     }
     private void run(String activity,Supplier<CompletableFuture<KnowledgeBaseSnapshot>> work,boolean recover) {
         if(disposed||busy) return;
-        long token=++generation; busy=true; progress.setToolTipText(activity); status.setText(activity); status.setToolTipText(null); retry.setVisible(false); updateControls();
+        long token=++generation; busy=true; registrationNotice=null; progress.setToolTipText(activity); status.setText(activity); status.setToolTipText(null); retry.setVisible(false); updateControls();
         try {
             var future=Objects.requireNonNull(work.get()); pending=future;
             future.whenComplete((value,error) -> SwingUtilities.invokeLater(() -> finish(token,value,error,recover)));
@@ -156,6 +161,7 @@ public final class KnowledgeBasePanel extends JPanel {
             boolean issue=!value.documents().isEmpty() && value.indexState()!=KnowledgeBaseSnapshot.IndexState.AVAILABLE;
             status.setText(issue ? value.embeddingConfigured()?"Needs attention":"Configure RAG" : "");
             status.setToolTipText(issue ? value.detail() : null); retry.setVisible(issue);
+            if(!issue && registrationNotice!=null) {status.setText("Already added");status.setToolTipText(registrationNotice);}
         } else {
             String message=cause instanceof CancellationException?"Cancelled":cause instanceof RagException rag?rag.getMessage():"Unable to update materials. Retry or check Course RAG settings.";
             status.setText(cause instanceof CancellationException?"Cancelled":"Update failed"); status.setToolTipText(message); retry.setVisible(true);

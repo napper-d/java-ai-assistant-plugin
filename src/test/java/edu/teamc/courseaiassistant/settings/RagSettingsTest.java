@@ -56,7 +56,7 @@ class RagSettingsTest {
         var original = new RagSettings.State();
         original.baseUrl = "https://example.invalid/v1"; original.model = "course-embedding";
         original.documentPrefix = "document: "; original.includeSlideNotes = true;
-        original.maxQueries = 4;
+        original.minScore = .82;
         var xml = XmlSerializer.serialize(original);
         var restored = XmlSerializer.deserialize(xml, RagSettings.State.class);
         assertEquals(original.toConfig(root, ""), restored.toConfig(root, ""));
@@ -71,9 +71,7 @@ class RagSettingsTest {
                 state -> state.overlapCharacters = state.chunkCharacters,
                 state -> state.batchSize = 129,
                 state -> state.minScore = Double.NaN,
-                state -> state.minScore = 1.01,
-                state -> state.maxRounds = 5,
-                state -> state.maxQueries = 0);
+                state -> state.minScore = 1.01);
         for (var change : invalid) {
             var state = new RagSettings.State(); change.accept(state);
             assertThrows(IllegalArgumentException.class, () -> state.validate(root));
@@ -90,7 +88,7 @@ class RagSettingsTest {
     @Test void changingSearchParametersPreservesIndexFingerprintButModelAndChunksDoNot() {
         var state = new RagSettings.State();
         var original = state.toConfig(root, "");
-        state.minScore = .8; state.multiStepEnabled = false; state.maxQueries = 3;
+        state.minScore = .8;
         var searchOnly = state.toConfig(root, "");
         assertEquals(original.splitterFingerprint(), searchOnly.splitterFingerprint());
         assertEquals(original.embedding().fingerprint(), searchOnly.embedding().fingerprint());
@@ -109,11 +107,11 @@ class RagSettingsTest {
         var service = new ProjectRagService(project(root.toString(), settings));
         Path file = Files.writeString(root.resolve("source.pdf"), "registration-only fixture");
         try {
-            assertEquals(1, service.registerMaterials(List.of(file)).get(5, TimeUnit.SECONDS).documents().size());
+            assertEquals(1, service.registerMaterials(List.of(file)).get(5, TimeUnit.SECONDS).snapshot().documents().size());
             var updated = settings.getState(); updated.model = "replacement-model";
             service.updateSettings(updated);
             assertEquals("replacement-model", settings.getState().model);
-            assertEquals(1, service.registerMaterials(List.of(file)).get(5, TimeUnit.SECONDS).documents().size());
+            assertEquals(1, service.registerMaterials(List.of(file)).get(5, TimeUnit.SECONDS).snapshot().documents().size());
             assertTrue(Files.exists(root.resolve(".course-ai/documents/default/documents.json")));
         } finally { service.dispose(); }
         var error = assertThrows(ExecutionException.class, () -> service.refreshLibrary().get());
