@@ -9,11 +9,10 @@ import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowFactory;
 import com.intellij.ui.content.Content;
 import com.intellij.ui.content.ContentFactory;
-import edu.teamc.courseaiassistant.application.RequestCoordinator;
+import edu.teamc.courseaiassistant.application.LiveChatSession;
+import edu.teamc.courseaiassistant.application.ProjectLlmService;
 import edu.teamc.courseaiassistant.application.ProjectRagService;
 import edu.teamc.courseaiassistant.settings.RagSettingsConfigurable;
-import edu.teamc.courseaiassistant.service.mock.MockChatService;
-import edu.teamc.courseaiassistant.sample.SampleScenario;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -21,31 +20,17 @@ import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.Arrays;
 import java.util.Locale;
-import javax.swing.JTabbedPane;
+
 
 public final class CourseAiToolWindowFactory implements ToolWindowFactory, DumbAware {
     public static final String TOOL_WINDOW_ID = "CourseAiAssistant";
 
-    private static final Map<ToolWindow, ChatPanel> panelRegistry = new WeakHashMap<>();
+    private static final Map<ToolWindow, AssistantPanel> panelRegistry = new WeakHashMap<>();
 
     @Override
     public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow toolWindow) {
-        MockChatService samples = new MockChatService();
-        RequestCoordinator coordinator = new RequestCoordinator(project, samples);
-
-        ChatPanel panel = new ChatPanel(coordinator, example -> samples.setScenario(
-                example == SampleScenario.COURSE_CITATION
-                        ? MockChatService.Scenario.SUCCESS_COURSE_GROUNDED
-                        : MockChatService.Scenario.SUCCESS_GENERAL_KNOWLEDGE));
-        Content content = ContentFactory.getInstance().createContent(panel, "Chat", false);
-        content.setDisposer(() -> {
-            panel.dispose();
-            panelRegistry.remove(toolWindow);
-        });
-        content.setPreferredFocusableComponent(panel.getPreferredFocusComponent());
-        toolWindow.getContentManager().addContent(content);
-        panelRegistry.put(toolWindow, panel);
-
+        LiveChatSession session = new LiveChatSession(project, project.getService(ProjectLlmService.class));
+        ChatPanel panel = new ChatPanel(session.coordinator());
         KnowledgeBasePanel library = new KnowledgeBasePanel(project.getService(ProjectRagService.class), () -> {
             FileChooserDescriptor descriptor = new FileChooserDescriptor(true, false, false, false, false, true)
                     .withTitle("Add course PDF / PPTX files")
@@ -56,39 +41,25 @@ public final class CourseAiToolWindowFactory implements ToolWindowFactory, DumbA
                     });
             return Arrays.stream(FileChooser.chooseFiles(descriptor, project, null)).map(file -> file.toNioPath()).toList();
         }, () -> ShowSettingsUtil.getInstance().showSettingsDialog(project, RagSettingsConfigurable.class));
-        RetrievalPreviewPanel preview = new RetrievalPreviewPanel(project.getService(ProjectRagService.class),
-                () -> ShowSettingsUtil.getInstance().showSettingsDialog(project, RagSettingsConfigurable.class));
-        JTabbedPane sections = new JTabbedPane();
-        sections.setName("courseMaterialSections");
-        sections.addTab("Files & index", library);
-        sections.addTab("Retrieval preview", preview);
-        Content materials = ContentFactory.getInstance().createContent(sections, "Course materials", false);
-        materials.setPreferredFocusableComponent(sections);
-        sections.addChangeListener(event -> {
-            if (sections.getSelectedComponent() == preview) {
-                materials.setPreferredFocusableComponent(preview.getPreferredFocusComponent());
-                if (sections.isShowing()) preview.getPreferredFocusComponent().requestFocusInWindow();
-            } else {
-                materials.setPreferredFocusableComponent(sections);
-            }
+        AssistantPanel host = new AssistantPanel(panel, library);
+        Content content = ContentFactory.getInstance().createContent(host, "", false);
+        content.setDisposer(() -> {
+            panel.dispose(); session.dispose(); library.dispose(); panelRegistry.remove(toolWindow);
         });
-        materials.setDisposer(() -> { preview.dispose(); library.dispose(); });
-        toolWindow.getContentManager().addContent(materials);
-        toolWindow.getContentManager().setSelectedContent(content);
+        content.setPreferredFocusableComponent(panel.getPreferredFocusComponent());
+        toolWindow.getContentManager().addContent(content);
+        panelRegistry.put(toolWindow, host);
     }
 
     @Nullable
     public static ChatPanel findChatPanel(@NotNull ToolWindow toolWindow) {
-        return panelRegistry.get(toolWindow);
+        AssistantPanel host = panelRegistry.get(toolWindow);
+        return host == null ? null : host.chatPanel();
     }
 
     @Nullable
     public static ChatPanel selectChatPanel(@NotNull ToolWindow toolWindow) {
-        ChatPanel panel = findChatPanel(toolWindow);
-        if (panel != null) {
-            Content content = toolWindow.getContentManager().getContent(panel);
-            if (content != null) toolWindow.getContentManager().setSelectedContent(content);
-        }
-        return panel;
+        AssistantPanel host = panelRegistry.get(toolWindow);
+        return host == null ? null : host.showChat();
     }
 }

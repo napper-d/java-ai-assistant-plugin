@@ -6,10 +6,7 @@ import edu.teamc.courseaiassistant.rag.RagException;
 import org.junit.jupiter.api.Test;
 import javax.swing.*;
 import java.awt.*;
-import java.awt.image.BufferedImage;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import javax.imageio.ImageIO;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
@@ -17,145 +14,116 @@ import static edu.teamc.courseaiassistant.application.KnowledgeBaseSnapshot.Inde
 import static org.junit.jupiter.api.Assertions.*;
 
 class KnowledgeBasePanelTest {
-    private static final Path FILE = Path.of("lecture.pdf").toAbsolutePath();
-    private static final RegisteredDocument DOCUMENT = new RegisteredDocument("doc", "lecture.pdf", FILE, Availability.MISSING);
+    private static final Path FILE=Path.of("lecture.pdf").toAbsolutePath();
+    private static final RegisteredDocument DOCUMENT=new RegisteredDocument("doc","lecture.pdf",FILE,Availability.MISSING);
 
-    @Test void registrationAndRemovalUseCapturedPathsAndBusyGuardsWithoutConfiguredEmbedding() throws Exception {
-        try (Fixture fixture = new Fixture()) {
-            var initial = fixture.next("refresh");
-            edt(() -> { assertFalse(fixture.button("addMaterials").isEnabled()); assertTrue(fixture.button("cancelLibraryTask").isEnabled()); });
-            complete(initial, snapshot(List.of(), NO_INDEX, false));
+    @Test void listShowsFilenameOnlyAndRowTrashCapturesOriginalPath() throws Exception {
+        try(Fixture f=new Fixture()) {
+            complete(f.next("refresh"),snapshot(List.of(),NO_INDEX,false));
+            edt(() -> f.button("addMaterials").doClick(0));
+            var call=f.next("register");assertEquals(List.of(FILE),call.paths);
+            complete(call,snapshot(List.of(DOCUMENT),NO_INDEX,false));
             edt(() -> {
-                assertFalse(fixture.button("rebuildIndex").isEnabled());
-                fixture.button("addMaterials").doClick(0);
+                assertEquals(2,f.table().getColumnCount());assertEquals("lecture.pdf",f.table().getValueAt(0,0));
+                assertNull(f.table().getTableHeader());assertNull(named(f.panel,"updateMaterials"));
+                assertNull(named(f.panel,"libraryFeedback"));assertNull(named(f.panel,"libraryDetail"));
+                assertTrue(f.table().editCellAt(0,1));((JButton)f.table().getEditorComponent()).doClick(0);
             });
-            var register = fixture.next("register"); assertEquals(List.of(FILE), register.paths);
-            edt(() -> { assertFalse(fixture.button("addMaterials").isEnabled()); assertFalse(fixture.button("ragSettings").isEnabled()); });
-            complete(register, snapshot(List.of(DOCUMENT), NO_INDEX, false));
-            edt(() -> {
-                assertEquals(1, fixture.table().getRowCount());
-                assertEquals("Missing", fixture.table().getValueAt(0, 2));
-                assertFalse(fixture.button("rebuildIndex").isEnabled());
-                fixture.table().setRowSelectionInterval(0, 0);
-                fixture.button("removeMaterials").doClick(0);
-            });
-            var remove = fixture.next("remove"); assertEquals(List.of(FILE), remove.paths);
-            complete(remove, snapshot(List.of(), NEEDS_REBUILD, false));
-            edt(() -> { assertEquals(0, fixture.table().getRowCount()); assertTrue(fixture.text("libraryFeedback").contains("Original files")); });
+            var remove=f.next("remove");assertEquals(List.of(FILE),remove.paths);
+            complete(remove,snapshot(List.of(),NO_INDEX,false));
+            edt(() -> assertEquals(0,f.table().getRowCount()));
         }
     }
-
-    @Test void failedBatchRefreshesActualRegistrationsAndPreservesTheSafeError() throws Exception {
-        try (Fixture fixture = new Fixture()) {
-            complete(fixture.next("refresh"), snapshot(List.of(), NO_INDEX, false));
-            edt(() -> fixture.button("addMaterials").doClick(0));
-            var failed = fixture.next("register");
-            failed.future.completeExceptionally(new RagException(RagException.Reason.INVALID_INPUT, "One file was rejected; earlier files may remain.", false));
-            flush();
-            complete(fixture.next("refresh"), snapshot(List.of(DOCUMENT), NO_INDEX, false));
+    @Test void automaticIndexingKeepsActivityAtTopAndCancellationReachesBuild() throws Exception {
+        try(Fixture f=new Fixture()) {
+            complete(f.next("refresh"),snapshot(List.of(),NO_INDEX,true));
+            edt(() -> f.button("addMaterials").doClick(0));
+            complete(f.next("register"),snapshot(List.of(DOCUMENT),NEEDS_REBUILD,true));
+            var build=f.next("rebuild");
             edt(() -> {
-                assertEquals(1, fixture.table().getRowCount());
-                assertTrue(fixture.text("libraryFeedback").contains("One file was rejected"));
-                assertTrue(fixture.button("addMaterials").isEnabled());
+                assertTrue(named(f.panel,"indexingProgress").isVisible());assertFalse(f.button("addMaterials").isEnabled());
+                assertEquals("lecture.pdf",f.table().getValueAt(0,0));
+                AssistantPresentationTest.render(f.panel,"materials-indexing",340,760);
+                f.button("cancelLibraryTask").doClick(0);
             });
+            assertTrue(build.future.isCancelled());complete(f.next("refresh"),snapshot(List.of(DOCUMENT),NEEDS_REBUILD,true));
+            edt(() -> f.button("retryIndexing").doClick(0));
+            complete(f.next("rebuild"),snapshot(List.of(DOCUMENT),AVAILABLE,true));
+            edt(() -> {assertFalse(named(f.panel,"indexingProgress").isVisible());assertEquals("",f.text("libraryStatus"));});
         }
     }
-
-    @Test void publishedButNotLoadedDoesNotDisplayRebuildSuccess() throws Exception {
-        try (Fixture fixture = new Fixture()) {
-            complete(fixture.next("refresh"), snapshot(List.of(DOCUMENT), AVAILABLE, true));
-            edt(() -> fixture.button("rebuildIndex").doClick(0));
-            complete(fixture.next("rebuild"), snapshot(List.of(DOCUMENT), RELOAD_REQUIRED, true));
+    @Test void partialBatchFailureRecoversListAndPreservesSafeTooltip() throws Exception {
+        try(Fixture f=new Fixture()) {
+            complete(f.next("refresh"),snapshot(List.of(),NO_INDEX,false));
+            edt(() -> f.button("addMaterials").doClick(0));
+            f.next("register").future.completeExceptionally(new RagException(RagException.Reason.INVALID_INPUT,"One file was rejected",false));flush();
+            complete(f.next("refresh"),snapshot(List.of(DOCUMENT),NO_INDEX,false));
             edt(() -> {
-                assertTrue(fixture.text("libraryStatus").contains("loading needs retry"));
-                assertTrue(fixture.text("libraryFeedback").contains("loading failed"));
-                assertFalse(fixture.text("libraryFeedback").contains("rebuilt and loaded"));
-                fixture.button("refreshMaterials").doClick(0);
-            });
-            complete(fixture.next("refresh"), snapshot(List.of(DOCUMENT), AVAILABLE, true));
-            edt(() -> assertEquals("Saved index available", fixture.text("libraryStatus")));
-        }
-    }
-
-    @Test void cancelInvalidatesASuccessAlreadyQueuedOnTheEdtAndRefreshesDiskState() throws Exception {
-        try (Fixture fixture = new Fixture()) {
-            complete(fixture.next("refresh"), snapshot(List.of(DOCUMENT), AVAILABLE, true));
-            edt(() -> fixture.button("rebuildIndex").doClick(0));
-            var old = fixture.next("rebuild");
-            edt(() -> {
-                old.future.complete(snapshot(List.of(DOCUMENT), AVAILABLE, true));
-                fixture.button("cancelLibraryTask").doClick(0);
-            });
-            complete(fixture.next("refresh"), snapshot(List.of(), NO_INDEX, false));
-            edt(() -> {
-                assertEquals(0, fixture.table().getRowCount());
-                assertEquals("No saved index", fixture.text("libraryStatus"));
-                assertTrue(fixture.text("libraryFeedback").startsWith("Cancelled"));
+                assertEquals(1,f.table().getRowCount());assertEquals("Update failed",f.text("libraryStatus"));
+                assertTrue(((JLabel)named(f.panel,"libraryStatus")).getToolTipText().contains("One file was rejected"));
             });
         }
     }
-
-    @Test void settingsChangeReplacesPendingWorkAndLateOldCallbacksCannotRestoreOldState() throws Exception {
-        try (Fixture fixture = new Fixture()) {
-            complete(fixture.next("refresh"), snapshot(List.of(DOCUMENT), AVAILABLE, true));
-            edt(() -> { fixture.button("ragSettings").doClick(0); assertEquals(1, fixture.settingsOpened.get());
-                fixture.backend.stickyNext = true; fixture.button("rebuildIndex").doClick(0); });
-            var old = fixture.next("rebuild");
-            fixture.backend.listener.get().run(); flush();
-            var fresh = fixture.next("refresh");
-            complete(fresh, snapshot(List.of(DOCUMENT), INCOMPATIBLE, true));
-            complete(old, snapshot(List.of(), AVAILABLE, true));
-            edt(() -> {
-                assertEquals(1, fixture.table().getRowCount());
-                assertTrue(fixture.text("libraryStatus").contains("settings changed"));
-                assertTrue(fixture.button("rebuildIndex").isEnabled());
-            });
+    @Test void retryAfterPublicationOnlyReloadsSavedIndex() throws Exception {
+        try(Fixture f=new Fixture()) {
+            complete(f.next("refresh"),snapshot(List.of(DOCUMENT),RELOAD_REQUIRED,true));
+            edt(() -> f.button("retryIndexing").doClick(0));
+            complete(f.next("refresh"),snapshot(List.of(DOCUMENT),AVAILABLE,true));
+            edt(() -> assertFalse(f.button("retryIndexing").isVisible()));
         }
     }
-
-    @Test void contentDisposalCancelsCurrentWorkAndUnsubscribesSettingsUpdates() throws Exception {
-        try (Fixture fixture = new Fixture()) {
-            var initial = fixture.next("refresh");
-            edt(() -> fixture.panel.dispose());
-            assertTrue(initial.future.isCancelled()); assertNull(fixture.backend.listener.get());
-            complete(initial, snapshot(List.of(DOCUMENT), AVAILABLE, true));
-            edt(() -> assertEquals(0, fixture.table().getRowCount()));
-            assertTrue(fixture.backend.calls.isEmpty());
+    @Test void settingsInvalidateOldImportAndIgnoreLateCallback() throws Exception {
+        try(Fixture f=new Fixture()) {
+            complete(f.next("refresh"),snapshot(List.of(DOCUMENT),AVAILABLE,true));
+            edt(() -> {f.button("ragSettings").doClick(0);assertEquals(1,f.settingsOpened.get());f.backend.stickyNext=true;f.button("addMaterials").doClick(0);});
+            var old=f.next("register");f.backend.listener.get().run();flush();
+            complete(f.next("refresh"),snapshot(List.of(DOCUMENT),INCOMPATIBLE,true));
+            complete(old,snapshot(List.of(),AVAILABLE,true));
+            edt(() -> {assertEquals(1,f.table().getRowCount());assertTrue(f.button("retryIndexing").isVisible());});
+            assertTrue(f.backend.calls.isEmpty());
         }
     }
-
-    @Test void narrowLayoutKeepsControlsAndMaterialListUsable() throws Exception {
-        try (Fixture fixture = new Fixture()) {
-            complete(fixture.next("refresh"), snapshot(List.of(DOCUMENT), NEEDS_REBUILD, false));
+    @Test void queuedIndexSuccessCannotWinOverCancelAndReload() throws Exception {
+        try(Fixture f=new Fixture()) {
+            complete(f.next("refresh"),snapshot(List.of(),NO_INDEX,true));edt(() -> f.button("addMaterials").doClick(0));
+            complete(f.next("register"),snapshot(List.of(DOCUMENT),NEEDS_REBUILD,true));var build=f.next("rebuild");
+            edt(() -> {build.future.complete(snapshot(List.of(DOCUMENT),AVAILABLE,true));f.button("cancelLibraryTask").doClick(0);});
+            complete(f.next("refresh"),snapshot(List.of(),NO_INDEX,true));
+            edt(() -> assertEquals(0,f.table().getRowCount()));
+        }
+    }
+    @Test void disposalCancelsWorkAndReleasesSubscription() throws Exception {
+        try(Fixture f=new Fixture()) {
+            var initial=f.next("refresh");edt(f.panel::dispose);assertTrue(initial.future.isCancelled());assertNull(f.backend.listener.get());
+            complete(initial,snapshot(List.of(DOCUMENT),AVAILABLE,true));edt(() -> assertEquals(0,f.table().getRowCount()));
+        }
+    }
+    @Test void compactListKeepsTopControlsUsableAtNarrowWidth() throws Exception {
+        try(Fixture f=new Fixture()) {
+            complete(f.next("refresh"),snapshot(List.of(DOCUMENT),AVAILABLE,true));
             edt(() -> {
-                fixture.panel.setSize(340, 760);
-                for (int pass = 0; pass < 3; pass++) layout(fixture.panel);
-                assertTrue(fixture.table().getParent().getHeight() >= 80, "The list must retain usable space in a narrow Tool Window");
-                for (String name : List.of("addMaterials", "removeMaterials", "refreshMaterials", "rebuildIndex", "ragSettings")) {
-                    JButton button = fixture.button(name);
-                    assertTrue(button.getWidth() >= 120, "Toolbar buttons must fit the narrow width");
-                }
+                String[] keys={"Panel.background","Table.background","Table.foreground","Viewport.background","Label.foreground","Button.foreground"};
+                var previous=new java.util.HashMap<String,Object>();for(String key:keys) previous.put(key,UIManager.get(key));
                 try {
-                    Path output = Path.of("build/reports/rag-gui-r2/materials-narrow.png");
-                    Files.createDirectories(output.getParent());
-                    var bitmap = new BufferedImage(340, 760, BufferedImage.TYPE_INT_RGB);
-                    Graphics2D graphics = bitmap.createGraphics(); fixture.panel.printAll(graphics); graphics.dispose();
-                    ImageIO.write(bitmap, "png", output.toFile());
-                } catch (java.io.IOException error) { throw new AssertionError(error); }
+                    for(boolean dark:new boolean[]{false,true}) {
+                        Color background=new Color(dark?0x242424:0xFAFAFB), foreground=new Color(dark?0xDFE1E5:0x282C34);
+                        for(String key:keys) UIManager.put(key,key.endsWith("background")?background:foreground);
+                        SwingUtilities.updateComponentTreeUI(f.panel);
+                        AssistantPresentationTest.render(f.panel,dark?"materials-list-dark":"materials-list-light",340,760);
+                    }
+                } finally {for(String key:keys) UIManager.put(key,previous.get(key));}
+
+                assertTrue(f.table().getHeight()>500);assertEquals(28,f.button("ragSettings").getWidth());
+                assertNull(named(f.panel,"updateMaterials"));
             });
         }
     }
-
-    private static void layout(Component component) {
-        if (component instanceof Container parent) { parent.doLayout(); for (Component child : parent.getComponents()) layout(child); }
-    }
-
     private static KnowledgeBaseSnapshot snapshot(List<RegisteredDocument> documents, KnowledgeBaseSnapshot.IndexState state, boolean configured) {
         return new KnowledgeBaseSnapshot(documents, state, state == NO_INDEX ? 0 : 1, state == NO_INDEX ? 0 : 4,
                 configured, "Saved file contents are not checked until an explicit rebuild.");
     }
     private record Call(String kind, List<Path> paths, CompletableFuture<KnowledgeBaseSnapshot> future) {}
-    private static final class Backend implements KnowledgeBaseOperations {
+    static final class Backend implements KnowledgeBaseOperations {
         final BlockingQueue<Call> calls = new LinkedBlockingQueue<>();
         final AtomicReference<Runnable> listener = new AtomicReference<>();
         boolean stickyNext;
@@ -184,7 +152,7 @@ class KnowledgeBasePanelTest {
         }
         JButton button(String name) { return (JButton) named(panel, name); }
         JTable table() { return (JTable) named(panel, "registeredMaterials"); }
-        String text(String name) { return ((JTextArea) named(panel, name)).getText(); }
+        String text(String name) { return ((JLabel) named(panel, name)).getText(); }
         @Override public void close() throws Exception { edt(() -> panel.dispose()); }
     }
     private static void complete(Call call, KnowledgeBaseSnapshot state) throws Exception { call.future.complete(state); flush(); }

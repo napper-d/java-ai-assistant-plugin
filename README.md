@@ -4,47 +4,37 @@ IntelliJ IDEA plugin for CST3492 Assignment A, Group C (F0 + F2).
 
 ## Current status
 
-Integration stage I1 adds project **Language model** settings under Settings > Tools >
-Course AI Assistant, a separate Password Safe key, and a lazy project-owned LLM service
-shared by future Chat/F2 wiring. Saving does not call an API. The current Chat and F2
-entries still use their existing wiring; see the [I1 review](docs/integration-i1-review.md)
-and [integration plan](docs/integration-plan.md) for the stage boundary and acceptance.
+The Tool Window uses right-aligned **Chat** and **Course materials** icon navigation,
+with Clear chat next to Chat. The welcome screen describes course Q&A, selected-code
+questions and reviewed code changes. Configure **Language model** and **Course RAG**
+under Settings > Tools > Course AI Assistant; their keys are separate in Password Safe.
 
-Member 3 now provides standalone real-provider chat and code-generation adapters in
-`llm/`, with cancellable transport, citation validation and proposal-only generation.
-See [Member 3 integration and configuration](docs/llm-services.md).
-The Tool Window still uses the mock; live IDE wiring and real-provider acceptance
-remain pending for ordinary chat. Member 4's separate Java-editor action now connects
-code generation to read-only Diff review and explicit approval before saving.
-See [F2 setup and acceptance](docs/f2-member4.md); real-provider acceptance remains pending.
+Adding PDF/PPTX materials automatically registers and indexes them using the configured
+embedding service. Removing materials updates the remaining index; with no materials,
+Chat cannot use the old index. Opening the window loads saved state automatically.
+The page is a filename list: use the plus icon to add files, a row’s trash icon to remove it,
+and the top-right gear to open Course RAG settings. Loading/indexing is shown by a top
+progress bar. Failure-only feedback and a retry icon replace permanent status panels.
+There are no Refresh / Load, Rebuild or Update materials controls.
+Saving settings alone does not make provider calls. If configuration is incomplete,
+files remain registered and the materials page explains how to finish indexing.
 
-Stages 1–3 were accepted. Stage 4 has service contracts, background invocation,
-a 30-second request deadline, cancellation and failure recovery. The Tool Window
-still runs in **Sample mode** with simulated replies and invented citations.
-Editor selections are captured as immutable code snapshots and passed to chat requests.
-RAG GUI work is split into three user-reviewed stages: project settings/service
-assembly, course-material management, and standalone retrieval preview. See the
-[implementation and acceptance plan](docs/rag-gui-plan.md). The settings page is
-under Settings > Tools > Course AI Assistant > Course RAG; its API key is stored
-separately in IDE Password Safe. Saving settings does not call an API or build an index.
-R1 was accepted for continued development. The **Course materials** Tool Window tab
-now provides original-path registration/removal, saved-index loading, full rebuilds,
-cancellation and settings access. Following authorization to continue after R2,
-**Retrieval preview** now searches the saved index and displays real excerpts,
-source IDs and page/slide references. R3 awaits user acceptance; see the
-[R3 review and acceptance steps](docs/rag-gui-r3-review.md).
-The UI supports Enter to send, Shift+Enter for newlines, clearing during a request,
-and light/dark themes. Stage 4 review fixes are ready for IDE acceptance.
-The `rag` package now registers original PDF/PPTX paths without copying files, with configurable online
-embeddings, persisted local vector search, bounded multi-step reference expansion
-and a pluggable asynchronous query planner. It is not
-connected to real chat yet; the Course materials tab uses its Java APIs. A real embedding provider and course corpus still
-need acceptance; live IDE LLM chat answers remain pending. F2 has a separate explicit
-model-configured editor action with reviewed single-file writes.
+Chat sends the current question, explicit selection and retrieved evidence to the model.
+Answers render CommonMark headings, emphasis, lists, quotes, code blocks and GFM tables in bordered,
+theme-aware cards. Sources have a separate bordered card. Processing is shown only as
+Thinking in the conversation. There is no footer status or keyboard hint text. Enter sends; Shift+Enter inserts a newline.
+Citations use numbers starting at 1 for each answer. Each source row shows only its
+number, document and page/slide; click it to expand the exact original evidence used
+for that answer. Expanding does not retrieve or call a model again. Internal reference
+IDs are validated in the service and never used as visible citation labels. Details
+show original chunks and retrieval metadata, not the embedding vector arrays.
 
-See [RAG configuration, commands and integration](docs/rag-search.md) and
-[Member 2 task status](docs/rag-search-task.md). `ragImport` needs no API key;
-`ragIndex` and `ragSearch` require the explicitly configured embedding endpoint.
+There is one question composer in Chat. The independent retrieval UI and its dedicated
+implementation have been removed. Chat history is display-only and remains in memory.
+Retrieval failure is an error; only successful no-match retrieval discloses general knowledge.
+F2 retains its existing explicit model configuration until I4. See the
+[UI / automatic indexing review](docs/integration-i3-review.md), [I2 review](docs/integration-i2-review.md)
+and [integration plan](docs/integration-plan.md). Real-provider / IDE acceptance remains pending.
 
 ## Development baseline
 
@@ -101,47 +91,27 @@ instrumentation outputs: `.\gradlew.bat clean buildPlugin verifyPluginProjectCon
 2. Wait for the separate development IDEA to open.
 3. Open a small Java project in that IDEA.
 4. Select **View > Tool Windows > Course AI Assistant** (ID: `CourseAiAssistant`).
-5. Check the visible **Sample mode** notice. Type a question and click the upward-arrow **Send** button.
-6. Switch **Example** between **With course citation** and **General knowledge**.
-   The first includes an invented source; the second explicitly discloses general
-   knowledge. Neither generates an answer from your question.
+5. Configure **Language model** and **Course RAG** in project Settings, including their respective keys.
+6. Add course files in **Course materials** and wait for automatic indexing, then ask a question in **Chat**. No example selector or fixed sample answers appear in this entry.
 7. Close the development IDEA to finish `runIde`.
 
-Use **Course materials > Files & index > Add PDF / PPTX** to register course files, then configure
-your embedding endpoint/model/key through **Settings** and choose **Rebuild index**.
-Registration/removal and **Refresh / Load** work without an API key; rebuilding
-calls your configured embedding API. The table shows original paths and missing
-files, and hovering a cell shows its full value. Removing a registration keeps the
-original file and existing index. Rebuild after editing materials; a loaded snapshot
-does not prove the original files are unchanged. See the R2 review for recovery,
-cancellation and removal-of-the-last-file behavior.
-
-Open **Course materials > Retrieval preview** and type in the bottom composer,
-then use the send arrow or Enter (Shift+Enter adds a newline). Like Chat, the middle
-transcript retains each submitted question and its response; the composer clears
-on submission and remains editable while searching. Responses are saved course
-excerpts, not generated answers; each question is searched independently.
-Source references and original text can be selected and copied. Optional similarity
-scores apply to all displayed results and are not probabilities. **Cancel** stops
-only the current query and preserves completed exchanges and the next draft.
-The top trash icon clears the retrieval conversation and draft. History is in
-memory only. Settings and index/material operations clear old exchanges without
-automatically starting another query.
-Successful no-match and retrieval errors are distinct. Real chat remains in Sample mode.
+Use the Course materials folder icon to add PDF/PPTX files. Indexing starts automatically
+and runs in the background. Cancel stops the current operation; earlier registration
+or an already published index may remain. Retry indexing resumes from saved registrations.
+Removing files never deletes originals. After editing a registered source file, add the same file again to index its current contents. Failed updates retain the previous snapshot on disk, but pending
+material changes prevent Chat from answering from stale registrations.
 
 Use Enter to send and Shift+Enter for newlines. Blank questions are rejected.
 The top trash icon (**Clear chat**) removes the conversation and draft. History is in memory only,
-per window: it is not persisted or supplied to a model. No code or course files
-are read automatically. The editor action reads only the selected text and its
-metadata; no surrounding code or whole-project scan is performed. Sources are
-plain text, not document-opening links.
+per window: it is not persisted or supplied to a model. Only the registered course index is used for retrieval; source code is not scanned automatically. The editor action reads only the selected text and its
+metadata; no surrounding code or whole-project scan is performed. Source rows expand original evidence; opening external documents is not yet implemented.
 
 Select code in an editor and choose **Ask Course AI Assistant** from its context
 menu. Check the attached path, language and inclusive line range before sending.
 The snapshot stays attached even if another editor is opened, until sent, removed
 or cleared. This is a snapshot from the action invocation, not a live selection.
 
-While waiting, Send and the example selector are disabled; typing a new draft is
+While waiting, Send is disabled; typing a new draft is
 allowed. Clear chat cancels the request and invalidates queued replies before
 starting a new conversation. Hiding the Tool Window preserves its session;
 disposing its content or closing the project releases the coordinator.

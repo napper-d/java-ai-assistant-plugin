@@ -41,9 +41,10 @@ class ChatPanelTest {
             edt(() -> {
                 require(f.calls.get() == 1, "Send invokes service once");
                 require(f.history().contains(literal), "Multiline Unicode and HTML-like input stays literal");
-                require(f.history().contains("[S1] lecture-notes-week3.pdf — pages 15–17"), "Real mock source is displayed");
+                require(f.history().contains("[1] lecture-notes-week3.pdf · page 15–17"), "Real mock source is displayed");
                 require(f.history().contains("invented"), "Sample source is disclosed");
                 require(f.input().getText().isEmpty() && !f.send().isEnabled(), "Submission clears input");
+                require(AssistantPresentationTest.named(f.panel, "chatStatus") == null, "No footer status exists after a response");
                 find(f.panel, "scenarioSelector", JComboBox.class).setSelectedItem(SampleScenario.GENERAL_KNOWLEDGE);
             });
             f.submit("When should I use an ArrayList?", true);
@@ -138,12 +139,13 @@ class ChatPanelTest {
         String history() { return find(panel, "conversationTranscript", ConversationView.class).getText(); }
         void submit(String query, boolean keyboard) throws Exception {
             edt(() -> { input().setText(query); if (keyboard) triggerSendShortcut(panel); else send().doClick(0); });
-            awaitEdt(() -> find(panel, "chatStatus", JLabel.class).getText().startsWith("Fixed sample reply"));
+            awaitEdt(() -> clear().isEnabled() && !history().contains("Thinking…") && history().contains("Course AI"));
         }
         public void close() throws Exception { edt(panel::dispose); }
     }
     private static void assertTextFits(Container parent) {
         for (Component child : parent.getComponents()) {
+            if (!child.isVisible()) continue;
             if (child instanceof ChatWidgets.Text text) {
                 require(text.getPreferredSize().height <= text.getHeight() + 1,
                         "Wrapped text is not clipped: " + text.plainText());

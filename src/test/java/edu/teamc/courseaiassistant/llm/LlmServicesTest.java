@@ -48,6 +48,7 @@ class LlmServicesTest {
             assertEquals(request.getRequestId(), answer.getRequestId());
             assertEquals(ChatAnswer.Provenance.COURSE_GROUNDED, answer.getProvenance());
             assertSame(CHUNK.getSource(), answer.getSources().getFirst());
+            assertEquals(List.of(CHUNK), answer.getEvidence());
             assertEquals("Use classes [R-one]", answer.getAnswer());
             assertEquals("Explain", query.get());
             assertTrue(client.prompt.contains("class A {}"));

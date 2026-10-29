@@ -40,7 +40,7 @@ class RequestLifecycleTest {
             flush();
             edt(() -> {
                 require(!fixture.history().contains("Unexpected") && !fixture.history().contains("⚠"), "Cancellation is not an error");
-                require(fixture.history().contains("Loading…"), "New request stays loading after old cancellation");
+                require(fixture.history().contains("Thinking…"), "New request stays loading after old cancellation");
                 fixture.input().setText("third draft");
                 require(!fixture.send().isEnabled(), "Old callback cannot re-enable send for new request");
                 require(service.calls.isEmpty(), "Waiting guard prevents a duplicate service call");
@@ -64,7 +64,7 @@ class RequestLifecycleTest {
             Call current = service.next(); flush();
             edt(() -> {
                 require(!fixture.history().contains("STALE_ANSWER"), "Queued success is invalidated by clear");
-                require(fixture.history().contains("Loading…"), "Queued success cannot finish a new request");
+                require(fixture.history().contains("Thinking…"), "Queued success cannot finish a new request");
                 current.future.complete(answer(current.request, "NEW_ANSWER"));
             });
             awaitEdt(() -> fixture.history().contains("NEW_ANSWER"));
@@ -179,7 +179,7 @@ class RequestLifecycleTest {
             ChatPanel panel = ref.get();
             CodeContext context = new CodeContext("src/Main.java", "JAVA", "return value;", 3, 3, 42, null);
             edt(() -> {
-                require(find(panel, "replyMode", JLabel.class).getText().startsWith("Sample mode"), "Async mock remains sample mode");
+                require(find(panel, "scenarioSelector", JComboBox.class) != null, "Sample tests retain their explicit selector");
                 panel.attachCodeContext(context); find(panel, "questionInput", JTextArea.class).setText("explain");
                 find(panel, "sendButton", JButton.class).doClick(0);
             });

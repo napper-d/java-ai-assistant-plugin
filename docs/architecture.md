@@ -1,5 +1,17 @@
 # Architecture and Ownership — Stage 4
 
+> Current UI update: Chat and Course materials share one icon navigation surface;
+> import indexes automatically and numbered citations expand original evidence.
+> Historical independent retrieval-page descriptions below are superseded.
+> See [current UI review](integration-i3-review.md).
+
+
+> I2 update (2026-10-28): Tool Window Chat now uses ProjectLlmService through
+> LiveChatSession, with project settings/Password Safe and ProjectRagService.search.
+> Mock and Sample descriptions below are historical. F2 already has a separate live
+> Diff/apply entry and awaits shared settings wiring in I4. See [I2 review](integration-i2-review.md).
+
+
 Member 3 update: the `llm` package now implements the existing chat and code-generation
 ports as standalone adapters. See [LLM services](llm-services.md). The historical
 scope below predates this delivery; real-provider acceptance, Tool Window wiring

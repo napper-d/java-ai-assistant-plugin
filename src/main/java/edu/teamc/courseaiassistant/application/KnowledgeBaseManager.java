@@ -24,6 +24,7 @@ final class KnowledgeBaseManager implements AutoCloseable {
     });
     private CompletableFuture<?> active;
     private boolean closed;
+    private boolean activeIsSearch;
     // Accessed only by the serial worker; file-content freshness is never asserted after reopening.
     private boolean dirty;
     private boolean reloadPending;
@@ -81,13 +82,13 @@ final class KnowledgeBaseManager implements AutoCloseable {
             return new KnowledgeBaseSnapshot(documents, changed ? NEEDS_REBUILD : AVAILABLE,
                     summary.documentIds().size(), summary.chunks(), configured, changed
                     ? documents.isEmpty()
-                        ? "No files are registered. The saved index still contains previous material. Add files and rebuild to replace it."
-                        : "Registered materials changed. The saved index may still contain removed files; rebuild to update it."
-                    : "Saved index loaded. File contents are checked only when rebuilding; rebuild after editing course files.");
+                        ? "No files are registered. The saved index still contains previous material. Add materials to create a current index."
+                        : "Registered materials changed. The saved index may still contain removed files; retry indexing to update it."
+                    : "Saved index loaded. Add the same file again after editing its contents.");
         } catch (RagException error) {
             if (reloadPending) {
                 return new KnowledgeBaseSnapshot(documents, RELOAD_REQUIRED, published.documents(), published.chunks(), configured,
-                        "Index saved, but loading failed. Use Refresh / Load index to retry. " + error.getMessage());
+                        "Index saved, but loading failed. Use Retry indexing to load it again. " + error.getMessage());
             }
             var state = switch (error.getReason()) {
                 case INDEX_UNAVAILABLE -> NO_INDEX;
@@ -98,16 +99,35 @@ final class KnowledgeBaseManager implements AutoCloseable {
         }
     }
 
+    <T> CompletableFuture<T> searchIfCurrent(java.util.function.Supplier<CompletableFuture<T>> search) {
+        return submit(context -> {
+            var documents = importer.listRegisteredDocuments();
+            if (documents.isEmpty()) throw new RagException(RagException.Reason.INDEX_UNAVAILABLE,
+                    "Add course materials before asking a course question.", false);
+            var summary = context.await(reload.get());
+            var ids = documents.stream().map(RegisteredDocument::documentId).collect(Collectors.toSet());
+            if (dirty || !ids.equals(summary.documentIds())) throw new RagException(RagException.Reason.INDEX_INCOMPATIBLE,
+                    "The materials index needs an update. Retry indexing in Course materials.", false);
+            return context.await(search.get());
+        }, true);
+    }
+
     private static <T> CompletableFuture<T> invalidSelection() {
         return CompletableFuture.failedFuture(new RagException(RagException.Reason.INVALID_INPUT,
                 "Select at least one course file.", false));
     }
 
-    private synchronized <T> CompletableFuture<T> submit(Function<Context, T> work) {
+    private <T> CompletableFuture<T> submit(Function<Context, T> work) { return submit(work, false); }
+
+    private synchronized <T> CompletableFuture<T> submit(Function<Context, T> work, boolean search) {
         if (closed) return CompletableFuture.failedFuture(new RagException(RagException.Reason.CLOSED,
                 "Course materials service is closed.", false));
-        if (active != null && !active.isDone()) return CompletableFuture.failedFuture(new RagException(
-                RagException.Reason.STORAGE_ERROR, "A course materials operation is already running.", true));
+        if (active != null && !active.isDone()) {
+            if (!search && activeIsSearch) active.cancel(true);
+            else return CompletableFuture.failedFuture(new RagException(RagException.Reason.STORAGE_ERROR,
+                    "A course materials operation is already running.", true));
+        }
+        activeIsSearch = search;
         Context context = new Context();
         CompletableFuture<T> result = new CompletableFuture<>() {
             @Override public boolean cancel(boolean interrupt) {
@@ -123,7 +143,7 @@ final class KnowledgeBaseManager implements AutoCloseable {
                 catch (CancellationException error) { result.cancel(true); }
                 catch (RagException error) { result.completeExceptionally(error); }
                 catch (RuntimeException error) { result.completeExceptionally(new RagException(RagException.Reason.STORAGE_ERROR,
-                        "Unable to complete the course materials operation. Refresh and try again.", true)); }
+                        "Unable to complete the course materials operation. Retry indexing.", true)); }
             }));
         } catch (RejectedExecutionException error) { result.cancel(true); }
         return result;
@@ -149,7 +169,7 @@ final class KnowledgeBaseManager implements AutoCloseable {
             catch (ExecutionException error) {
                 if (error.getCause() instanceof CancellationException cancellation) throw cancellation;
                 if (error.getCause() instanceof RagException rag) throw rag;
-                throw new RagException(RagException.Reason.STORAGE_ERROR, "Unable to update the course index. Refresh and retry.", true);
+                throw new RagException(RagException.Reason.STORAGE_ERROR, "Unable to update the course index. Retry indexing.", true);
             } finally { synchronized (this) { if (child == operation) child = null; } }
         }
     }

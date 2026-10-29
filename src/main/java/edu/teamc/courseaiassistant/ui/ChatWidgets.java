@@ -50,7 +50,7 @@ final class ChatWidgets {
         }
     }
 
-    static final class Text extends JTextPane {
+    static class Text extends JTextPane {
         private final boolean muted;
         private final float sizeOffset;
 
@@ -271,8 +271,8 @@ final class ChatWidgets {
         }
     }
 
-    /** Shared bottom composer; callers supply their own actions and status content. */
-    static JPanel composer(JTextArea question, JComponent tools, JComponent status, JComponent above) {
+    /** Shared composer with its actions inside the input card. */
+    static JPanel composer(JTextArea question, JComponent tools, JComponent above) {
         JPanel composer = transparent(new BorderLayout(0, 7));
         if (above != null) composer.add(above, BorderLayout.NORTH);
         JPanel inputCard = new RoundedPanel(new BorderLayout(0, 12), false, true);
@@ -282,7 +282,6 @@ final class ChatWidgets {
         inputCard.add(inputScroll, BorderLayout.CENTER);
         inputCard.add(tools, BorderLayout.SOUTH);
         composer.add(inputCard, BorderLayout.CENTER);
-        composer.add(status, BorderLayout.SOUTH);
         return composer;
     }
 

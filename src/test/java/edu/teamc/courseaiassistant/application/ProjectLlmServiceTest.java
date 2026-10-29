@@ -71,4 +71,50 @@ class ProjectLlmServiceTest {
             assertThrows(ExecutionException.class, () -> model.ask(new ChatRequest("closed", null)).get());
         } finally { unsubscribe.run(); model.dispose(); rag.dispose(); }
     }
+    @Test void liveBindingInvalidatesQueuedSuccessOnModelOrRagChangeAndDisposal() throws Exception {
+        for (String change : List.of("model", "rag", "content", "project")) {
+            var settings = new LlmSettings(); var ragSettings = new RagSettings();
+            var ragRef = new AtomicReference<ProjectRagService>(); var disposed = new AtomicBoolean();
+            Project project = (Project) Proxy.newProxyInstance(Project.class.getClassLoader(), new Class<?>[]{Project.class}, (proxy, method, args) -> switch (method.getName()) {
+                case "getService" -> args[0] == LlmSettings.class ? settings : args[0] == RagSettings.class ? ragSettings : ragRef.get();
+                case "getBasePath" -> root.toString(); case "isDisposed" -> disposed.get(); case "isDefault" -> false;
+                case "toString" -> "QueuedLiveChatProject"; case "hashCode" -> System.identityHashCode(proxy); case "equals" -> proxy == args[0];
+                default -> throw new UnsupportedOperationException(method.getName());
+            });
+            var rag = new ProjectRagService(project); ragRef.set(rag);
+            var session = new LlmRuntimeTest.Session();
+            var model = new ProjectLlmService(project, () -> session);
+            var binding = new LiveChatSession(project, model);
+            var request = new ChatRequest("question", null);
+            AtomicInteger successes = new AtomicInteger(), cancellations = new AtomicInteger();
+            var callback = new RequestCoordinator.ChatCallback() {
+                public void onRequestStarted(String id) { }
+                public void onRequestCompleted(edu.teamc.courseaiassistant.model.ChatAnswer answer) { successes.incrementAndGet(); }
+                public void onRequestFailed(edu.teamc.courseaiassistant.model.ServiceFailure failure) { fail(failure.getMessage()); }
+                public void onRequestCancelled(String id) { cancellations.incrementAndGet(); }
+            };
+            try {
+                javax.swing.SwingUtilities.invokeAndWait(() -> binding.coordinator().submitChatRequest(request, callback));
+                var child = session.chats.poll(5, TimeUnit.SECONDS); assertNotNull(child);
+                long until = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+                while (child.getNumberOfDependents() == 0 && System.nanoTime() < until) Thread.sleep(5);
+                assertTrue(child.getNumberOfDependents() > 0);
+                javax.swing.SwingUtilities.invokeAndWait(() -> {
+                    child.complete(new edu.teamc.courseaiassistant.model.ChatAnswer(request.getRequestId(), "stale", List.of(),
+                            edu.teamc.courseaiassistant.model.ChatAnswer.Provenance.GENERAL_KNOWLEDGE, "general"));
+                    switch (change) {
+                        case "model" -> model.updateSettings(settings.getState());
+                        case "rag" -> rag.updateSettings(ragSettings.getState());
+                        case "content" -> binding.dispose();
+                        default -> { disposed.set(true); model.dispose(); }
+                    }
+                });
+                javax.swing.SwingUtilities.invokeAndWait(() -> { });
+                assertEquals(0, successes.get(), change + " must suppress queued success");
+                if (change.equals("model") || change.equals("rag")) assertEquals(1, cancellations.get());
+                if (change.equals("content")) assertEquals(0, session.closes.get(), "Content must not own the model session");
+            } finally { binding.dispose(); model.dispose(); rag.dispose(); }
+        }
+    }
+
 }

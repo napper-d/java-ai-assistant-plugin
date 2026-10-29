@@ -22,7 +22,17 @@ final class LlmFailures {
                 case EMBEDDING_ERROR -> ServiceFailure.Category.MODEL_ERROR;
                 default -> ServiceFailure.Category.UNKNOWN;
             };
-            return new ServiceFailure(id, category, "Course retrieval failed. Check the course index and RAG settings.", rag.isRetryable());
+            String message = switch (rag.getReason()) {
+                case CONFIGURATION -> "Configure the embedding endpoint, model and API key in Course RAG settings.";
+                case INDEX_UNAVAILABLE -> "No course index is available. Add course materials to create the index automatically.";
+                case INDEX_INCOMPATIBLE -> "The course index does not match the current RAG settings. Use Retry indexing in Course materials.";
+                case INDEX_CORRUPT -> "The course index is damaged. Use Retry indexing in Course materials.";
+                case NETWORK_ERROR -> "Unable to reach the embedding service. Check Course RAG settings and retry.";
+                case TIMEOUT -> "Course retrieval timed out. Check Course RAG settings and retry.";
+                case EMBEDDING_ERROR -> "The embedding service failed. Check the model and API key in Course RAG settings.";
+                default -> "Course retrieval failed. Check the course index and RAG settings.";
+            };
+            return new ServiceFailure(id, category, message, rag.isRetryable());
         }
         if (error instanceof HttpTimeoutException || error instanceof TimeoutException)
             return new ServiceFailure(id, ServiceFailure.Category.TIMEOUT, "The model request timed out. Please retry.", true);

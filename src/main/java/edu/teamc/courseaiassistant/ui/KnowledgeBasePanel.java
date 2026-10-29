@@ -1,13 +1,10 @@
 package edu.teamc.courseaiassistant.ui;
 
-import edu.teamc.courseaiassistant.application.KnowledgeBaseOperations;
-import edu.teamc.courseaiassistant.application.KnowledgeBaseSnapshot;
+import edu.teamc.courseaiassistant.application.*;
 import edu.teamc.courseaiassistant.rag.DocumentImporter.RegisteredDocument;
 import edu.teamc.courseaiassistant.rag.RagException;
-
 import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import javax.swing.table.AbstractTableModel;
+import javax.swing.table.*;
 import java.awt.*;
 import java.nio.file.Path;
 import java.util.List;
@@ -15,227 +12,191 @@ import java.util.Objects;
 import java.util.concurrent.*;
 import java.util.function.Supplier;
 
-/** Material management only. It never formats an LLM answer or prompts for credentials. */
+/** Filename list with automatic indexing; failures and activity stay in the compact top toolbar. */
 public final class KnowledgeBasePanel extends JPanel {
     private final KnowledgeBaseOperations operations;
     private final Supplier<List<Path>> chooseFiles;
-    private final Runnable openSettings;
-    private final JButton add = button("Add PDF / PPTX", "addMaterials");
-    private final JButton remove = button("Remove", "removeMaterials");
-    private final JButton rebuild = button("Rebuild index", "rebuildIndex");
-    private final JButton refresh = button("Refresh / Load", "refreshMaterials");
-    private final JButton cancel = button("Cancel", "cancelLibraryTask");
-    private final JButton settings = button("Settings", "ragSettings");
-    private final JTextArea status = messageArea();
-    private final JTextArea detail = messageArea();
-    private final JTextArea feedback = messageArea();
-    private final JProgressBar progress = new JProgressBar();
     private final MaterialsTable model = new MaterialsTable();
     private final JTable files = new JTable(model) {
+        @Override public void updateUI() {
+            super.updateUI(); setBackground(ChatTheme.current().canvas()); setForeground(ChatTheme.current().text());
+        }
         @Override public String getToolTipText(java.awt.event.MouseEvent event) {
-            int row = rowAtPoint(event.getPoint()), column = columnAtPoint(event.getPoint());
-            return row < 0 || column < 0 ? null : String.valueOf(getValueAt(row, column));
+            int row=rowAtPoint(event.getPoint());
+            if(row<0) return null;
+            var file=model.documents.get(convertRowIndexToModel(row));
+            return file.path()+ (file.availability()==edu.teamc.courseaiassistant.rag.DocumentImporter.Availability.AVAILABLE ? "" : " — file unavailable");
         }
     };
+    private final JButton add=iconButton("+","Add PDF / PPTX","addMaterials");
+    private final JButton settings=iconButton("⚙","Course RAG settings","ragSettings");
+    private final JButton cancel=iconButton("×","Cancel indexing","cancelLibraryTask");
+    private final JButton retry=iconButton("↻","Retry indexing","retryIndexing");
+    private final JLabel status=new ChatWidgets.Label("",-1,false,true);
+    private final JProgressBar progress=new JProgressBar();
     private final Runnable unsubscribe;
     private KnowledgeBaseSnapshot snapshot;
     private CompletableFuture<?> pending;
     private long generation;
-    private boolean busy;
-    private boolean disposed;
+    private boolean busy, disposed;
 
     public KnowledgeBasePanel(KnowledgeBaseOperations operations, Supplier<List<Path>> chooseFiles, Runnable openSettings) {
-        super(new BorderLayout(0, 10));
-        this.operations = Objects.requireNonNull(operations);
-        this.chooseFiles = Objects.requireNonNull(chooseFiles);
-        this.openSettings = Objects.requireNonNull(openSettings);
-        setName("knowledgeBasePanel"); setBorder(new EmptyBorder(12, 14, 12, 14));
-        JPanel header = new JPanel(new BorderLayout(0, 6));
-        JLabel title = new JLabel("Course materials"); title.setFont(title.getFont().deriveFont(Font.BOLD));
-        header.add(title, BorderLayout.NORTH);
-        JPanel toolbar = new JPanel(new GridLayout(0, 2, 5, 5));
-        for (JButton button : List.of(add, remove, refresh, rebuild, settings)) toolbar.add(button);
-        remove.setToolTipText("Remove selected registrations; keep original files and the saved index");
-        refresh.setToolTipText("Refresh registrations and retry loading the saved index");
-        header.add(toolbar, BorderLayout.CENTER);
-        JTextArea policy = messageArea();
-        policy.setText("Adding registers original paths. Rebuilding reads all registered files and calls your embedding service. Removing a registration keeps the original file and saved index.");
-        header.add(policy, BorderLayout.SOUTH);
-        add(header, BorderLayout.NORTH);
-
-        files.setName("registeredMaterials"); files.setFillsViewportHeight(true);
-        files.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
-        files.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
-        files.getColumnModel().getColumn(0).setPreferredWidth(120);
-        files.getColumnModel().getColumn(1).setPreferredWidth(260);
-        files.getColumnModel().getColumn(2).setPreferredWidth(100);
-        files.getColumnModel().getColumn(0).setMinWidth(80);
-        files.getColumnModel().getColumn(1).setMinWidth(100);
-        files.getColumnModel().getColumn(2).setMinWidth(80);
-        files.setRowHeight(Math.max(24, files.getRowHeight()));
-        JScrollPane list = new JScrollPane(files);
-        list.setColumnHeaderView(files.getTableHeader());
-        list.setPreferredSize(new Dimension(400, 250));
-        add(list, BorderLayout.CENTER);
-
-        JPanel footer = new JPanel(new BorderLayout(0, 6));
-        JPanel information = new JPanel(new GridBagLayout());
-        status.setName("libraryStatus"); detail.setName("libraryDetail"); feedback.setName("libraryFeedback");
-        status.setFont(status.getFont().deriveFont(Font.BOLD));
-        GridBagConstraints row = new GridBagConstraints();
-        row.gridx = 0; row.weightx = 1; row.fill = GridBagConstraints.HORIZONTAL;
-        row.anchor = GridBagConstraints.NORTHWEST; row.insets = new Insets(0, 0, 5, 0);
-        for (JTextArea area : List.of(status, detail, feedback)) {
-            row.gridy++; information.add(area, row);
-        }
-        footer.add(information, BorderLayout.CENTER);
-        JPanel activity = new JPanel(new BorderLayout(8, 0));
-        progress.setIndeterminate(true); progress.setVisible(false);
-        activity.add(progress, BorderLayout.CENTER); activity.add(cancel, BorderLayout.EAST);
-        footer.add(activity, BorderLayout.SOUTH);
-        add(footer, BorderLayout.SOUTH);
-
-        add.addActionListener(event -> addFiles());
-        remove.addActionListener(event -> removeSelected());
-        refresh.addActionListener(event -> refresh());
-        rebuild.addActionListener(event -> run("Rebuilding index…", "Index rebuilt and loaded.", operations::rebuildLibrary, true));
-        settings.addActionListener(event -> this.openSettings.run());
-        cancel.addActionListener(event -> cancelTask());
-        files.getSelectionModel().addListSelectionListener(event -> updateControls());
-        unsubscribe = operations.onSettingsChanged(() -> SwingUtilities.invokeLater(() -> {
-            if (disposed) return;
-            generation++;
-            if (pending != null) pending.cancel(true);
-            pending = null; busy = false;
-            snapshot = null;
-            feedback.setText("Settings changed. Reloading the saved index with the new configuration…");
-            refresh();
+        super(new BorderLayout(0,8));
+        this.operations=Objects.requireNonNull(operations); this.chooseFiles=Objects.requireNonNull(chooseFiles);
+        setName("knowledgeBasePanel"); setBorder(com.intellij.util.ui.JBUI.Borders.empty(10,12));
+        JPanel header=ChatWidgets.transparent(new BorderLayout(8,0));
+        header.add(new ChatWidgets.Label("Course materials",0,true,false),BorderLayout.WEST);
+        JPanel tools=ChatWidgets.transparent(new FlowLayout(FlowLayout.RIGHT,3,0));
+        status.setName("libraryStatus");
+        progress.setName("indexingProgress"); progress.setIndeterminate(true);
+        progress.setPreferredSize(new Dimension(72,6)); progress.setVisible(false);
+        progress.getAccessibleContext().setAccessibleName("Loading or indexing course materials");
+        tools.add(status); tools.add(progress); tools.add(cancel); tools.add(retry); tools.add(add); tools.add(settings);
+        header.add(tools,BorderLayout.EAST); add(header,BorderLayout.NORTH);
+        files.setName("registeredMaterials"); files.setTableHeader(null); files.setShowGrid(false);
+        files.setFillsViewportHeight(true); files.setRowHeight(38);
+        files.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        files.getColumnModel().getColumn(1).setMinWidth(36); files.getColumnModel().getColumn(1).setMaxWidth(36);
+        files.getColumnModel().getColumn(1).setCellRenderer((table,value,selected,focus,row,column) -> {
+            JButton trash=trashButton(); trash.setEnabled(!busy&&!disposed); return trash;
+        });
+        files.getColumnModel().getColumn(1).setCellEditor(new TrashEditor());
+        files.getColumnModel().getColumn(0).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override public Component getTableCellRendererComponent(JTable table,Object value,boolean selected,boolean focus,int row,int column) {
+                JLabel label=(JLabel)super.getTableCellRendererComponent(table,value,selected,focus,row,column);
+                label.setBorder(com.intellij.util.ui.JBUI.Borders.empty(0,10)); return label;
+            }
+        });
+        JScrollPane list=new JScrollPane(files); list.setColumnHeaderView(null);
+        list.setBorder(com.intellij.util.ui.JBUI.Borders.customLine(ChatTheme.current().border()));
+        add(list,BorderLayout.CENTER);
+        add.addActionListener(event -> addFiles()); settings.addActionListener(event -> openSettings.run());
+        cancel.addActionListener(event -> cancelTask()); retry.addActionListener(event -> retry());
+        unsubscribe=operations.onSettingsChanged(() -> SwingUtilities.invokeLater(() -> {
+            if(disposed) return;
+            generation++; if(pending!=null) pending.cancel(true); pending=null; busy=false;
+            snapshot=null; refresh();
         }));
         refresh();
     }
-
-    private static JButton button(String text, String name) {
-        JButton button = new JButton(text); button.setName(name); return button;
+    @Override protected void paintComponent(Graphics graphics) {
+        super.paintComponent(graphics);
+        graphics.setColor(ChatTheme.current().canvas());graphics.fillRect(0,0,getWidth(),getHeight());
     }
-    private static JTextArea messageArea() {
-        JTextArea area = new JTextArea(); area.setEditable(false); area.setLineWrap(true); area.setWrapStyleWord(true);
-        area.setOpaque(false); area.setFocusable(true); area.setFont(UIManager.getFont("Label.font"));
-        return area;
+    private static JButton iconButton(String text,String tooltip,String name) {
+        JButton button=new JButton(text); button.setName(name); button.setToolTipText(tooltip);
+        button.getAccessibleContext().setAccessibleName(tooltip);
+        button.setPreferredSize(new Dimension(28,28)); button.setMargin(new Insets(0,0,0,0));
+        button.setContentAreaFilled(false); button.setBorderPainted(false);
+        button.setText(null);
+        button.setIcon(new Icon() {
+            public int getIconWidth(){return 18;} public int getIconHeight(){return 18;}
+            public void paintIcon(Component c,Graphics graphics,int x,int y) {
+                Graphics2D g=(Graphics2D)graphics.create(); g.translate(x,y);
+                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
+                g.setColor(ChatTheme.current().muted()); g.setStroke(new BasicStroke(1.5f));
+                if(text.equals("+")){g.drawLine(9,3,9,15);g.drawLine(3,9,15,9);}
+                else if(text.equals("×")){g.drawLine(4,4,14,14);g.drawLine(4,14,14,4);}
+                else if(text.equals("↻")){g.drawArc(3,3,12,12,30,285);g.drawLine(14,2,15,7);g.drawLine(15,7,10,6);}
+                else {g.drawOval(4,4,10,10);g.drawOval(7,7,4,4);for(int i=0;i<8;i++){double angle=i*Math.PI/4;g.drawLine(9+(int)(5*Math.cos(angle)),9+(int)(5*Math.sin(angle)),9+(int)(8*Math.cos(angle)),9+(int)(8*Math.sin(angle)));}}
+                g.dispose();
+            }
+        }); return button;
     }
-
+    private static JButton trashButton() {
+        JButton button=new ChatWidgets.Button(false); button.setName("removeMaterial");
+        button.setToolTipText("Remove this file"); button.getAccessibleContext().setAccessibleName("Remove this file");
+        return button;
+    }
+    private final class TrashEditor extends AbstractCellEditor implements TableCellEditor {
+        private final JButton button=trashButton(); private Path path;
+        TrashEditor() { button.addActionListener(event -> { Path captured=path; fireEditingStopped(); remove(captured); }); }
+        @Override public Component getTableCellEditorComponent(JTable table,Object value,boolean selected,int row,int column) {
+            path=model.documents.get(table.convertRowIndexToModel(row)).path(); button.setEnabled(!busy&&!disposed); return button;
+        }
+        @Override public Object getCellEditorValue() { return ""; }
+    }
     private void addFiles() {
-        if (busy || disposed) return;
-        List<Path> selected = chooseFiles.get();
-        if (selected == null || selected.isEmpty()) return;
-        List<Path> captured = List.copyOf(selected);
-        run("Registering course files…", "Files registered. Rebuild to update the saved index.",
-                () -> operations.registerMaterials(captured), true);
+        if(busy||disposed) return;
+        List<Path> chosen=chooseFiles.get(); if(chosen==null||chosen.isEmpty()) return;
+        var paths=List.copyOf(chosen);
+        run("Indexing…", () -> update(paths,false),true);
     }
-
-    private void removeSelected() {
-        if (busy || disposed || files.getSelectedRowCount() == 0) return;
-        List<Path> selected = java.util.Arrays.stream(files.getSelectedRows())
-                .mapToObj(row -> model.documents.get(files.convertRowIndexToModel(row)).path()).toList();
-        run("Removing registrations…", "Registrations removed. Original files and the old index are retained.",
-                () -> operations.unregisterMaterials(selected), true);
+    private void remove(Path path) {
+        if(busy||disposed||path==null) return;
+        run("Indexing…", () -> update(List.of(path),true),true);
     }
-
-    private void refresh() { run("Loading saved index and registrations…", null, operations::refreshLibrary, false); }
-
-    private void run(String activity, String completed, Supplier<CompletableFuture<KnowledgeBaseSnapshot>> work, boolean recover) {
-        if (disposed || busy) return;
-        long token = ++generation;
-        busy = true; progress.setVisible(true); status.setText(activity); updateControls();
-        try { pending = Objects.requireNonNull(work.get()); }
-        catch (RuntimeException error) { finish(token, null, error, completed, recover); return; }
-        @SuppressWarnings("unchecked")
-        CompletableFuture<KnowledgeBaseSnapshot> future = (CompletableFuture<KnowledgeBaseSnapshot>) pending;
-        future.whenComplete((value, error) -> SwingUtilities.invokeLater(() -> finish(token, value, error, completed, recover)));
+    private CompletableFuture<KnowledgeBaseSnapshot> update(List<Path> paths,boolean remove) {
+        long token=generation;
+        return MaterialUpdateTask.start(operations,paths,remove,registered -> SwingUtilities.invokeLater(() -> {
+            if(disposed||token!=generation||!busy) return;
+            snapshot=registered;model.documents=registered.documents();model.fireTableDataChanged();
+        }));
     }
-
-    private void finish(long token, KnowledgeBaseSnapshot value, Throwable error, String completed, boolean recover) {
-        if (disposed || token != generation) return;
-        busy = false; pending = null; progress.setVisible(false);
-        Throwable cause = unwrap(error);
-        if (error == null && value != null) {
-            snapshot = value; model.documents = value.documents(); model.fireTableDataChanged();
-            showSnapshot();
-            if (completed != null) feedback.setText(value.indexState() == KnowledgeBaseSnapshot.IndexState.RELOAD_REQUIRED
-                    ? "Index saved; loading failed. Use Refresh / Load to retry." : completed);
+    private void refresh() { run("Loading…",operations::refreshLibrary,false); }
+    private void retry() {
+        if(snapshot!=null && !snapshot.documents().isEmpty()) run("Indexing…", () ->
+                snapshot.indexState()==KnowledgeBaseSnapshot.IndexState.RELOAD_REQUIRED ? operations.refreshLibrary() : operations.rebuildLibrary(),true);
+        else refresh();
+    }
+    private void run(String activity,Supplier<CompletableFuture<KnowledgeBaseSnapshot>> work,boolean recover) {
+        if(disposed||busy) return;
+        long token=++generation; busy=true; progress.setToolTipText(activity); status.setText(activity); status.setToolTipText(null); retry.setVisible(false); updateControls();
+        try {
+            var future=Objects.requireNonNull(work.get()); pending=future;
+            future.whenComplete((value,error) -> SwingUtilities.invokeLater(() -> finish(token,value,error,recover)));
+        } catch(RuntimeException error) { finish(token,null,error,recover); }
+    }
+    private void finish(long token,KnowledgeBaseSnapshot value,Throwable error,boolean recover) {
+        if(disposed||token!=generation) return;
+        busy=false; pending=null;
+        Throwable cause=error; while(cause!=null && cause.getCause()!=null && (cause instanceof CompletionException||cause instanceof ExecutionException)) cause=cause.getCause();
+        if(error==null && value!=null) {
+            snapshot=value; model.documents=value.documents(); model.fireTableDataChanged();
+            boolean issue=!value.documents().isEmpty() && value.indexState()!=KnowledgeBaseSnapshot.IndexState.AVAILABLE;
+            status.setText(issue ? value.embeddingConfigured()?"Needs attention":"Configure RAG" : "");
+            status.setToolTipText(issue ? value.detail() : null); retry.setVisible(issue);
         } else {
-            status.setText(cause instanceof CancellationException ? "Operation cancelled" : "Operation failed");
-            feedback.setText(cause instanceof CancellationException
-                    ? "Cancelled. Earlier registrations or an already published index may remain; refresh to inspect them."
-                    : cause instanceof RagException rag ? rag.getMessage() : "Unable to complete the operation. Refresh and try again.");
-            if (!(cause instanceof CancellationException) && recover) {
-                // A batch may have registered some files before it failed. Always reread actual state.
-                refresh();
+            String message=cause instanceof CancellationException?"Cancelled":cause instanceof RagException rag?rag.getMessage():"Unable to update materials. Retry or check Course RAG settings.";
+            status.setText(cause instanceof CancellationException?"Cancelled":"Update failed"); status.setToolTipText(message); retry.setVisible(true);
+            if(recover && !(cause instanceof CancellationException)) {
+                recoverState(message);
             }
         }
         updateControls(); revalidate(); repaint();
     }
-
-    private void showSnapshot() {
-        String state = switch (snapshot.indexState()) {
-            case NO_INDEX -> "No saved index";
-            case AVAILABLE -> "Saved index available";
-            case NEEDS_REBUILD -> "Materials changed — rebuild required";
-            case INCOMPATIBLE -> "Index settings changed — rebuild required";
-            case INDEX_ERROR -> "Saved index could not be loaded";
-            case RELOAD_REQUIRED -> "Index saved — loading needs retry";
-        };
-        status.setText(state);
-        detail.setText(snapshot.documents().size() + " registered files · " + snapshot.indexedDocuments()
-                + " indexed documents · " + snapshot.chunks() + " chunks\n" + snapshot.detail()
-                + (snapshot.embeddingConfigured() ? "" : "\nSet an embedding API URL and model in Settings before rebuilding. An API key is also required."));
+    private void recoverState(String message) {
+        long token=++generation; busy=true;
+        try {
+            var refresh=operations.refreshLibrary(); pending=refresh;
+            refresh.whenComplete((value,error) -> SwingUtilities.invokeLater(() -> {
+                if(disposed||token!=generation) return;
+                if(value!=null) {snapshot=value;model.documents=value.documents();model.fireTableDataChanged();}
+                busy=false;pending=null;status.setText("Update failed");status.setToolTipText(message);retry.setVisible(true);
+                updateControls();
+            }));
+        } catch(RuntimeException ignored) {busy=false;pending=null;}
     }
-
     private void cancelTask() {
-        if (!busy || pending == null) return;
-        pending.cancel(true);
-        // Invalidate even a success already queued on the EDT, then inspect actual disk state.
-        generation++; pending = null; busy = false; progress.setVisible(false);
-        feedback.setText("Cancelled. A completed registration or published index may remain; checking saved state…");
-        refresh();
+        if(!busy||pending==null) return;
+        generation++; pending.cancel(true); pending=null; busy=false; refresh();
     }
-
     private void updateControls() {
-        add.setEnabled(!disposed && !busy);
-        remove.setEnabled(!disposed && !busy && files.getSelectedRowCount() > 0);
-        refresh.setEnabled(!disposed && !busy);
-        rebuild.setEnabled(!disposed && !busy && snapshot != null && snapshot.embeddingConfigured() && !snapshot.documents().isEmpty());
-        settings.setEnabled(!disposed && !busy);
-        cancel.setEnabled(!disposed && busy);
+        status.setVisible(!busy&&!status.getText().isBlank());
+        progress.setVisible(!disposed&&busy); cancel.setVisible(!disposed&&busy);
+        add.setEnabled(!disposed&&!busy); settings.setEnabled(!disposed&&!busy);
+        retry.setEnabled(!disposed&&!busy); files.setEnabled(!disposed&&!busy);
     }
-
-    private static Throwable unwrap(Throwable error) {
-        while ((error instanceof CompletionException || error instanceof ExecutionException) && error.getCause() != null) error = error.getCause();
-        return error;
-    }
-
     public void dispose() {
-        disposed = true; generation++; unsubscribe.run();
-        if (pending != null) pending.cancel(true);
-        pending = null; busy = false;
+        disposed=true; generation++; unsubscribe.run(); if(pending!=null) pending.cancel(true);
+        pending=null; busy=false;
     }
-
     private static final class MaterialsTable extends AbstractTableModel {
-        private List<RegisteredDocument> documents = List.of();
-        private final String[] names = {"Document", "Original path", "File status"};
-        @Override public int getRowCount() { return documents.size(); }
-        @Override public int getColumnCount() { return names.length; }
-        @Override public String getColumnName(int column) { return names[column]; }
-        @Override public Object getValueAt(int row, int column) {
-            RegisteredDocument document = documents.get(row);
-            return switch (column) {
-                case 0 -> document.documentName();
-                case 1 -> document.path().toString();
-                default -> switch (document.availability()) {
-                    case AVAILABLE -> "Available";
-                    case MISSING -> "Missing";
-                    case UNREADABLE -> "Unreadable";
-                };
-            };
-        }
+        private List<RegisteredDocument> documents=List.of();
+        @Override public int getRowCount() {return documents.size();}
+        @Override public int getColumnCount() {return 2;}
+        @Override public String getColumnName(int column) {return column==0?"Document":"Remove";}
+        @Override public Object getValueAt(int row,int column) {return column==0?documents.get(row).documentName():"";}
+        @Override public boolean isCellEditable(int row,int column) {return column==1;}
     }
 }

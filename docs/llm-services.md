@@ -1,5 +1,17 @@
 # 成员 3：大模型问答与代码生成
 
+> Current UI update: Chat and Course materials share one icon navigation surface;
+> import indexes automatically and numbered citations expand original evidence.
+> Historical independent retrieval-page descriptions below are superseded.
+> See [current UI review](integration-i3-review.md).
+
+
+> I2 update (2026-10-28): Tool Window Chat now uses ProjectLlmService through
+> LiveChatSession, with project settings/Password Safe and ProjectRagService.search.
+> Mock and Sample descriptions below are historical. F2 already has a separate live
+> Diff/apply entry and awaits shared settings wiring in I4. See [I2 review](integration-i2-review.md).
+
+
 ## 本次交付边界
 
 `llm.LlmChatService` 实现 `ChatService`，`llm.LlmCodeGenerationService` 实现

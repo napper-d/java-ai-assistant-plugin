@@ -45,7 +45,7 @@ class KnowledgeBaseManagerTest {
             try (var reopened = new KnowledgeBaseManager(fixture.config, fixture.indexer, fixture.search::reloadSummary)) {
                 var state = get(reopened.refreshLibrary());
                 assertEquals(NEEDS_REBUILD, state.indexState());
-                assertTrue(state.detail().contains("Add files and rebuild"));
+                assertTrue(state.detail().contains("Add materials to create a current index"));
             }
         }
     }

@@ -16,6 +16,9 @@ repositories {
 
 // Read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html
 dependencies {
+    implementation("org.commonmark:commonmark:0.30.0")
+    implementation("org.commonmark:commonmark-ext-gfm-tables:0.30.0")
+    implementation("org.commonmark:commonmark-ext-gfm-tables:0.30.0")
     implementation("dev.langchain4j:langchain4j:1.7.1")
     implementation("org.apache.pdfbox:pdfbox:3.0.8")
     implementation("org.apache.poi:poi-ooxml:6.0.0")

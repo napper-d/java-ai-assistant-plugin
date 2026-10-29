@@ -14,9 +14,9 @@
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-description -->
     <description><![CDATA[
         Teaching assistant plugin for CST3492 Java Enterprise Application Development.<br>
-        Provides an embedded chat interface with clearly labeled local sample replies
-        and example citations. Live course-grounded Q&amp;A, code-context questions,
-        and reviewed AI code changes are planned for later stages.
+        Provides course-grounded chat with source citations and selected-code questions.
+        Configure language model and embedding services in project settings.
+        Explicit Java code modifications are reviewed in the built-in Diff Viewer before approval.
     ]]></description>
 
     <!-- Product and plugin compatibility requirements.
@@ -44,10 +44,6 @@
     <actions>
         <action id="CourseAiAssistant.LiveModify" class="edu.teamc.courseaiassistant.modification.LiveModifyAction"
                 text="Modify Java Code with LLM..." description="Generate and review a change using explicit model configuration">
-            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
-        </action>
-        <action id="CourseAiAssistant.SampleModify" class="edu.teamc.courseaiassistant.modification.SampleModifyAction"
-                text="F2: Review Fixed Sample Change (No AI)">
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
         </action>
         <action id="CourseAiAssistant.AskAssistant"

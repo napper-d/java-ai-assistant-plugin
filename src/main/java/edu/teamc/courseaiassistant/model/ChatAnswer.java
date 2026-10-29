@@ -15,6 +15,7 @@ public final class ChatAnswer {
     private final @NotNull List<SourceReference> sources;
     private final @NotNull Provenance provenance;
     private final @Nullable String disclosure;
+    private final List<KnowledgeChunk> evidence;
 
     public enum Provenance {
         COURSE_GROUNDED,
@@ -28,6 +29,12 @@ public final class ChatAnswer {
             @NotNull Provenance provenance,
             @Nullable String disclosure
     ) {
+        this(requestId, answer, sources, provenance, disclosure, List.of());
+    }
+
+    public ChatAnswer(String requestId, String answer, List<SourceReference> sources,
+                      Provenance provenance, String disclosure, List<KnowledgeChunk> evidence) {
+        this.evidence = List.copyOf(evidence);
         this.requestId = Objects.requireNonNull(requestId);
         this.answer = Objects.requireNonNull(answer);
         this.sources = List.copyOf(sources);
@@ -59,6 +66,8 @@ public final class ChatAnswer {
     public String getDisclosure() {
         return disclosure;
     }
+
+    public List<KnowledgeChunk> getEvidence() { return evidence; }
 
     @Override
     public String toString() {

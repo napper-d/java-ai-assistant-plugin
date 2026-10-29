@@ -13,17 +13,24 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /** Project owns index/search/transport. Creating this service never accesses files or credentials. */
 @Service(Service.Level.PROJECT)
 public final class ProjectRagService implements Disposable, KnowledgeBaseOperations {
     private final Project project;
+    private final Supplier<String> credential;
     private RagSession session;
     private boolean disposed;
     private final List<Runnable> settingsListeners = new CopyOnWriteArrayList<>();
     private final List<Runnable> libraryListeners = new CopyOnWriteArrayList<>();
 
-    public ProjectRagService(Project project) { this.project = project; }
+    public ProjectRagService(Project project) { this(project, () -> RagCredentials.read(project)); }
+
+    ProjectRagService(Project project, Supplier<String> credential) {
+        this.project = project;
+        this.credential = credential;
+    }
 
     public static Path projectRoot(Project project) {
         String path = project.getBasePath();
@@ -35,7 +42,7 @@ public final class ProjectRagService implements Disposable, KnowledgeBaseOperati
     }
 
     @Override public CompletableFuture<List<KnowledgeChunk>> search(String query, int maxResults) {
-        return invoke(current -> current.search.search(query, maxResults));
+        return invoke(current -> current.library.searchIfCurrent(() -> current.search.search(query, maxResults)));
     }
 
     @Override public CompletableFuture<KnowledgeBaseSnapshot> refreshLibrary() {
@@ -76,7 +83,7 @@ public final class ProjectRagService implements Disposable, KnowledgeBaseOperati
         try {
             if (session == null) {
                 var state = project.getService(RagSettings.class).getState();
-                session = new RagSession(state.toConfig(projectRoot(project), ""), () -> RagCredentials.read(project));
+                session = new RagSession(state.toConfig(projectRoot(project), ""), credential);
             }
             return action.apply(session);
         } catch (RagException error) { return CompletableFuture.failedFuture(error); }

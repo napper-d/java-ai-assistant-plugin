@@ -36,10 +36,11 @@ final class StructuredReplies {
             if (!markers.equals(cited) || (!evidence.isEmpty() && cited.isEmpty())) throw new IllegalArgumentException();
             String withoutMarkers = CITATION.matcher(answer).replaceAll("");
             if (withoutMarkers.contains("[[cite:")) throw new IllegalArgumentException();
-            for (String source : cited) answer = answer.replace("[[cite:" + source + "]]", "[" + source + "]");
-            return new ChatAnswer(id, answer, cited.stream().map(available::get).toList(),
+            for (String source : markers) answer = answer.replace("[[cite:" + source + "]]", "[" + source + "]");
+            return new ChatAnswer(id, answer, markers.stream().map(available::get).toList(),
                     cited.isEmpty() ? ChatAnswer.Provenance.GENERAL_KNOWLEDGE : ChatAnswer.Provenance.COURSE_GROUNDED,
-                    cited.isEmpty() ? "No relevant course material was found. This answer uses general knowledge." : null);
+                    cited.isEmpty() ? "No relevant course material was found. This answer uses general knowledge." : null,
+                    evidence.stream().filter(chunk -> markers.contains(chunk.getSource().getReferenceId())).toList());
         } catch (RuntimeException error) { throw LlmFailures.malformed(id); }
     }
 

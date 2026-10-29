@@ -14,7 +14,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-class RetrievalPreviewIntegrationTest {
+class CourseRetrievalIntegrationTest {
     @TempDir Path root;
 
     @Test void pdfPagesPptxScopesAndReferenceIdsSurviveOriginalRemovalAndFreshIndexLoad() throws Exception {

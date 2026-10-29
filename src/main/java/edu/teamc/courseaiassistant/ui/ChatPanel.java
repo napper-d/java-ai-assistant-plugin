@@ -30,7 +30,6 @@ public final class ChatPanel extends JPanel {
     private final JComboBox<SampleScenario> scenario = new ChatWidgets.ExampleSelector<>(SampleScenario.values());
     private final JButton send = new ChatWidgets.Button(true);
     private final JButton clear = new ChatWidgets.Button(false);
-    private final JLabel status = new ChatWidgets.Label("Enter to send, Shift+Enter for new line", -1, false, true);
     private final JScrollPane history = ChatWidgets.scrollPane(conversation);
     private final JPanel contextPreviewPanel = new JPanel(new BorderLayout());
     private CodeContext currentContext;
@@ -57,7 +56,6 @@ public final class ChatPanel extends JPanel {
 
         send.setName("sendButton");
         clear.setName("clearChatButton");
-        status.setName("chatStatus");
         question.setName("questionInput");
         question.getAccessibleContext().setAccessibleName("Your question");
         question.setToolTipText("Enter sends. Shift+Enter adds a new line.");
@@ -92,17 +90,15 @@ public final class ChatPanel extends JPanel {
     }
 
     private JPanel createHeader() {
-        JPanel header = ChatWidgets.transparent(new BorderLayout(0, 5));
-        JPanel title = ChatWidgets.transparent(new BorderLayout(8, 0));
-        title.add(new ChatWidgets.Label("Course AI Assistant", 1, true, false), BorderLayout.CENTER);
-        title.add(clear, BorderLayout.EAST);
-        header.add(title, BorderLayout.NORTH);
-        String modeText = sampleMode ? "Sample mode: no model or course retrieval connected" : "Live mode";
-        JLabel mode = new ChatWidgets.Label(modeText, -1, false, true);
-        mode.setName("replyMode");
-        header.add(mode, BorderLayout.SOUTH);
-        header.setBorder(new EmptyBorder(0, 2, 8, 2));
+        JPanel header = ChatWidgets.transparent(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        header.add(clear);
         return header;
+    }
+
+    public JButton useExternalToolbar() {
+        Component header = ((BorderLayout) getLayout()).getLayoutComponent(BorderLayout.NORTH);
+        if (header != null) remove(header);
+        return clear;
     }
 
     private JPanel createComposer() {
@@ -117,19 +113,17 @@ public final class ChatPanel extends JPanel {
         example.add(scenario, BorderLayout.CENTER);
         if (sampleMode) tools.add(example, BorderLayout.CENTER);
         tools.add(send, BorderLayout.EAST);
-        return ChatWidgets.composer(question, tools, status, contextPreviewPanel);
+        return ChatWidgets.composer(question, tools, contextPreviewPanel);
     }
 
     private void submitQuestion() {
         if (disposed) return;
         if (isWaitingForResponse) {
-            status.setText("Already waiting for a response…");
             return;
         }
 
         String text = question.getText().strip();
         if (text.isBlank()) {
-            status.setText("Enter a question first.");
             return;
         }
 
@@ -151,7 +145,6 @@ public final class ChatPanel extends JPanel {
         clear.setEnabled(true);
         updateSendState();
         scenario.setEnabled(false);
-        status.setText("Waiting for response…");
 
         coordinator.submitChatRequest(request, new RequestCoordinator.ChatCallback() {
             @Override
@@ -183,7 +176,6 @@ public final class ChatPanel extends JPanel {
         scenario.setEnabled(true);
         clear.setEnabled(true);
         updateSendState();
-        status.setText(sampleMode ? "Fixed sample reply. No model connected." : "Response received.");
         question.requestFocusInWindow();
         SwingUtilities.invokeLater(() -> {
             if (isDisplayable() && conversation.hasMessages()) {
@@ -200,7 +192,6 @@ public final class ChatPanel extends JPanel {
         scenario.setEnabled(true);
         clear.setEnabled(true);
         updateSendState();
-        status.setText("Request failed. " + (failure.isRetryable() ? "You can retry." : ""));
         question.requestFocusInWindow();
     }
 
@@ -211,7 +202,6 @@ public final class ChatPanel extends JPanel {
         scenario.setEnabled(true);
         clear.setEnabled(true);
         updateSendState();
-        status.setText("Request cancelled.");
         question.requestFocusInWindow();
     }
 
@@ -237,10 +227,14 @@ public final class ChatPanel extends JPanel {
         currentRequestId = null;
         isWaitingForResponse = false;
         if (requestToCancel != null) coordinator.cancelRequest(requestToCancel);
-        conversation.showWelcome();
+        if (sampleMode) conversation.showWelcome();
+        else conversation.showWelcome("Course Assistant",
+                "Learn Java with your course materials.\n\n"
+                        + "✓  Ask questions with course citations\n\n"
+                        + "✓  Discuss selected code from your editor\n\n"
+                        + "✓  Review code changes before applying them");
         question.setText("");
         clear.setEnabled(false);
-        status.setText("Enter to send, Shift+Enter for new line");
         history.getVerticalScrollBar().setValue(0);
         updateSendState();
         clearCodeContext();
