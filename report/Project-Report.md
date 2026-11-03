@@ -6,7 +6,7 @@
 | --- | --- | --- | --- | --- |
 | 1 | 杜冰焱 | 2450319 | 17316397176 | 2450319@tongji.edu.cn |
 | 2 | 黄茂军 | [TO COMPLETE] | [TO COMPLETE] | [TO COMPLETE] |
-| 3 | 李一芃 | [TO COMPLETE] | [TO COMPLETE] | [TO COMPLETE] |
+| 3 | 李一芃 | 2454326 | [TO COMPLETE] | 2454326@tongji.edu.cn |
 | 4 | 董泽福 | [TO COMPLETE] | [TO COMPLETE] | [TO COMPLETE] |
 
 ## 2. Implemented Functionalities and Features
