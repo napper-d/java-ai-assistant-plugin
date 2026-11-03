@@ -51,6 +51,13 @@ bin/
 /nbdist/
 /.nb-gradle/
 
+### Gradle project moved into code/ ###
+/code/nbproject/private/
+/code/nbbuild/
+/code/dist/
+/code/nbdist/
+/code/.nb-gradle/
+
 ### VS Code ###
 .vscode/
 

@@ -1,9 +1,10 @@
 # Team collaboration
 
-This repository contains the Group C IntelliJ plugin (F0 + F2). The Gradle project
-is the repository root. The parent directory in the original author's workspace
-contains personal stage plans and the assignment PDF; those files are outside this
-repository and are not included when cloning it.
+This repository contains the Group C IntelliJ plugin (F0 + F2), report and
+presentation sources. The Gradle project is in `code/`, while `report/` and `ppt/`
+are its siblings at the repository root. Commands and technical-document paths
+below are relative to `code/`; open that directory as the IDEA Gradle project.
+Personal stage plans and the assignment PDF remain outside this repository.
 
 ## Start here
 
