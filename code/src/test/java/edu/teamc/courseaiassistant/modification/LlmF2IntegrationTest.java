@@ -14,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class LlmF2IntegrationTest {
     @Test void httpGenerationProducesProposalAcceptedByMemberFour() throws Exception {
+        String expected = SampleCodeGenerationService.BUG.replace("a - b", "a + b");
+        var generatedText = new java.util.concurrent.atomic.AtomicReference<>(expected);
         var server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
         server.createContext("/v1/chat/completions",exchange->{
             try {
@@ -21,7 +23,7 @@ class LlmF2IntegrationTest {
                 assertFalse(input.get("stream").getAsBoolean());
                 JsonObject proposal=new JsonObject();
                 proposal.addProperty("path","src/SumDemo.java");
-                proposal.addProperty("proposedFileText",SampleCodeGenerationService.BUG.replace("a - b","a + b"));
+                proposal.addProperty("proposedFileText",generatedText.get());
                 proposal.addProperty("summary","Fix addition");
                 JsonObject message=new JsonObject(); message.addProperty("content",proposal.toString());
                 JsonObject choice=new JsonObject(); choice.add("message",message); choice.addProperty("finish_reason","stop");
@@ -36,11 +38,14 @@ class LlmF2IntegrationTest {
             var config=new LlmConfig(URI.create("http://127.0.0.1:"+server.getAddress().getPort()+"/v1"),"local-fixture","fixture-key",Duration.ofSeconds(5),4096,60000);
             var request=new ModificationRequest("Fix sum",new CodeContext("src/SumDemo.java","JAVA","return a - b;",3,3,42,null),SampleCodeGenerationService.BUG);
             try(var client=new HttpLlmClient(config); var generator=new LlmCodeGenerationService(client,config)) {
-                var result=generator.generate(request).get(10,TimeUnit.SECONDS);
-                new ProposalValidator().validate(request,result);
-                assertEquals(request.requestId(),result.requestId());
-                assertEquals(request.originalFileText(),result.change().originalFileText());
-                assertTrue(result.change().proposedFileText().contains("return a + b;"));
+                for (String newline : new String[]{"\n", "\r\n", "\r"}) {
+                    generatedText.set(expected.replace("\n", newline));
+                    var result=generator.generate(request).get(10,TimeUnit.SECONDS);
+                    new ProposalValidator().validate(request,result);
+                    assertEquals(request.requestId(),result.requestId());
+                    assertEquals(request.originalFileText(),result.change().originalFileText());
+                    assertEquals(expected,result.change().proposedFileText());
+                }
             }
         } finally {server.stop(0);}
     }

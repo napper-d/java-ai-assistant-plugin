@@ -141,6 +141,38 @@ class LlmServicesTest {
         }
         assertFalse(client.closed);
     }
+    @Test void proposalNormalizesLineEndingsWithoutChangingSnapshotOrJavaEscapes() throws Exception {
+        String original = "class A {\r\n}\r\n";
+        String expected = "class A {\n\n    String newline = \"\\r\\n\";\n}\n";
+        for (String generated : List.of(expected, expected.replace("\n", "\r\n"),
+                expected.replace('\n', '\r'), "class A {\r\n\r    String newline = \"\\r\\n\";\n}\r\n")) {
+            Client client = new Client(); JsonObject json = new JsonObject();
+            json.addProperty("path", "src/A.java"); json.addProperty("proposedFileText", generated);
+            json.addProperty("summary", "Add newline literal"); client.response.complete(json.toString());
+            var context = new CodeContext("src/A.java", "JAVA", "class A {", 1, 1, 42, null);
+            var request = new ModificationRequest("Add newline literal", context, original);
+            try (var service = new LlmCodeGenerationService(client, config(Duration.ofSeconds(2)))) {
+                var proposal = service.generate(request).get();
+                assertEquals(expected, proposal.change().proposedFileText());
+                assertEquals(original, proposal.change().originalFileText());
+                assertEquals(request.requestId(), proposal.requestId());
+            }
+        }
+    }
+    @Test void rejectsLineEndingOnlyProposalsAfterNormalization() throws Exception {
+        String lf = "class A {\n}\n";
+        for (String original : List.of(lf, lf.replace("\n", "\r\n"))) {
+            for (String generated : List.of(lf, lf.replace("\n", "\r\n"), lf.replace('\n', '\r'))) {
+                Client client = new Client(); JsonObject json = new JsonObject();
+                json.addProperty("path", "src/A.java"); json.addProperty("proposedFileText", generated);
+                json.addProperty("summary", "Change line endings"); client.response.complete(json.toString());
+                var request = new ModificationRequest("Change", new CodeContext("src/A.java", "JAVA", "class A {", 1, 1, 42, null), original);
+                try (var service = new LlmCodeGenerationService(client, config(Duration.ofSeconds(2)))) {
+                    assertEquals(ServiceFailure.Category.MODEL_ERROR, failure(service.generate(request)).getCategory());
+                }
+            }
+        }
+    }
     @Test void rejectsChangedTargetEmptyReplacementAndNoOp() throws Exception {
         for (String[] fields : List.of(new String[]{"other.java", "class B {}"}, new String[]{"src/A.java", ""}, new String[]{"src/A.java", "class A {}"})) {
             Client client = new Client(); JsonObject json = new JsonObject();

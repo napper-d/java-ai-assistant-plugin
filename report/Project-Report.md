@@ -33,7 +33,7 @@ Additional features include IDE-wide connection settings and a shared course lib
 
 Production entry points are connected to the real-service adapters. Mock adapters and deterministic test clients support development and regression testing; they are not the production chat path. Historical design documents describe earlier project-local settings and separate retrieval previews. The current implementation uses global settings, a shared course library and evidence shown inside Chat.
 
-The repository's existing JUnit XML results contain **135 tests, 0 failures, 0 errors and 0 skipped tests across 22 suites**. These files were inspected for this draft; the suite was not rerun during report preparation. The results do not establish live provider quality, real lecture retrieval accuracy or multi-window IDE acceptance.
+On 3 November 2026, a clean local run passed **137 tests, 0 failures, 0 errors and 0 skipped tests across 22 suites**. Plugin packaging, project configuration verification and plugin structure verification also passed. The regression suite includes generated-file line-ending normalization and the handoff from LLM generation to proposal validation. These results do not establish live provider quality, real lecture retrieval accuracy or multi-window IDE acceptance.
 
 ## 3. User Manual
 

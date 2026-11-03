@@ -1,5 +1,29 @@
 # 成员 3 本地交付记录
 
+## 2026-11-03 修复与回归验证
+
+分支：`codex/fix-llm-line-endings`，基于 `origin/master` 的 `be435b7`。
+
+- 修复模型返回 CRLF 或 CR 换行时，成员 3 生成的建议被成员 4 的 LF 校验拒绝的问题。
+  解析模型结果时统一为 LF；原始文件快照保持不变，Java 字符串中的字面转义不受影响。
+- 比较实际内容时统一换行，拒绝仅改变换行格式的无实质修改建议。
+- 提示词补充 LF 约定；新增回归用例覆盖混合换行、空行、末尾换行、原始快照和转义保留，
+  并扩展本地 HTTP → LLM 生成 → 成员 4 校验的联调用例。
+- 同步更新成员 3 接入说明，以及报告和 PPT 的自动化验证结果。个人材料及人工验收占位保留。
+
+使用 JDK 21 在 `code/` 下验证：
+
+- 修复前运行新增回归测试：17 个测试中 3 个失败，复现上述兼容性及无变化判断问题。
+- 修复后定向运行 `LlmServicesTest` 和 `LlmF2IntegrationTest`：通过。
+- `gradlew.bat clean test buildPlugin verifyPluginProjectConfiguration verifyPluginStructure --offline --console=plain`：
+  通过；22 个测试套件，共 137 tests，0 failures，0 errors，0 skipped，插件 ZIP 已生成。
+
+当前生产入口已接入真实服务适配器，F2 的 Diff 审核、批准、写入及撤销已有实现。
+下文是 10 月 28 日交付时的历史状态，不代表当前实现仍未接线。
+本次使用本地 HTTP 测试服务，未调用真实供应商；真实课程问答质量、引用语义和实际 IDEA 操作仍需人工验收。
+
+## 2026-10-28 原始交付记录
+
 日期：2026-10-28。分支：`feature/member3-llm-services`。
 
 ## 交付

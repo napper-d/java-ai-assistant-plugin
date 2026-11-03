@@ -48,11 +48,16 @@ final class StructuredReplies {
         try {
             JsonObject object = JsonParser.parseString(raw).getAsJsonObject();
             String path = string(object, "path");
-            String text = string(object, "proposedFileText");
+            String text = normalizeLineEndings(string(object, "proposedFileText"));
             String summary = string(object, "summary");
             if (!path.equals(request.codeContext().getProjectRelativePath()) || summary.isBlank() || text.isBlank()
-                    || text.equals(request.originalFileText())) throw new IllegalArgumentException();
+                    || text.equals(normalizeLineEndings(request.originalFileText()))) throw new IllegalArgumentException();
             return new ChangeProposal(request.requestId(), new CodeChange(path, request.originalFileText(), text, summary));
         } catch (RuntimeException error) { throw LlmFailures.malformed(request.requestId()); }
+    }
+
+    /** IDEA documents use LF. Normalize decoded line breaks, not literal Java backslash escapes. */
+    private static String normalizeLineEndings(String text) {
+        return text.replace("\r\n", "\n").replace('\r', '\n');
     }
 }

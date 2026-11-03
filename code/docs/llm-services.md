@@ -1,35 +1,30 @@
-> I4 更新（2026-10-29）：正式 F2 入口使用 ProjectLlmService 与 Language model 设置，不再选择 .env 目录。配置变化会使生成及待批准审阅失效。以下旧 .env 接线说明仅为历史或显式开发工具用途。详见 [I4 审阅](integration-i4-review.md)。
-
 # 成员 3：大模型问答与代码生成
 
-> Current UI update: Chat and Course materials share one icon navigation surface;
-> import indexes automatically and numbered citations expand original evidence.
-> Historical independent retrieval-page descriptions below are superseded.
-> See [current UI review](integration-i3-review.md).
+当前状态（2026-11-03）：正式 Chat 和 F2 均已接入成员 3 服务，经 `ProjectLlmService`
+使用 Language model 设置和 Password Safe。普通连接参数、凭据和课程库在同一 IDE
+配置内全局共享；请求与模型会话仍按项目管理。详见 [全局配置](integration-global-settings-review.md)
+和 [F2 接线](integration-i4-review.md)。
 
+Chat 与 Course materials 共用 Tool Window；添加资料自动索引，回答中的编号引用可以
+展开本次实际证据。正式聊天不使用 Mock，F2 不再要求选择 `.env` 目录。
+历史开发与验收过程保留在 [成员 3 交付记录](member3-review.md) 和各阶段 review 中；
+它们不能替代最新版本的真实供应商/IDE 验收。
 
-> I2 update (2026-10-28): Tool Window Chat now uses ProjectLlmService through
-> LiveChatSession, with project settings/Password Safe and ProjectRagService.search.
-> Mock and Sample descriptions below are historical. F2 already has a separate live
-> Diff/apply entry and awaits shared settings wiring in I4. See [I2 review](integration-i2-review.md).
-
-
-## 本次交付边界
+## 模块边界
 
 `llm.LlmChatService` 实现 `ChatService`，`llm.LlmCodeGenerationService` 实现
-`CodeGenerationService`。共享接口和数据结构未修改。实现包含提示词、结构化结果校验、
+`CodeGenerationService`。实现包含提示词、结构化结果校验、
 OpenAI-compatible `/chat/completions` 传输、配置加载、错误转换、总时限和取消传播。
 
-当前 Tool Window 仍使用 `MockChatService`。本交付是成员 3 的可调用服务，
-不是已完成的 IDE 真实聊天接线；成员 1 负责项目配置/Password Safe、替换 Mock、
-去除 Sample 标识并绑定服务生命周期。成员 4 负责修改入口、原文件快照采集、
-Diff 审核、批准、目标验证、写入与撤销。本模块不读取或写入源文件。
+成员 1 的 `LiveChatSession` 将 Tool Window 接到项目服务，并管理配置和 UI 生命周期；
+检索通过 `ProjectRagService.search` 借用共享课程库。成员 4 的修改入口负责原文件快照、
+Diff 审核、批准、目标验证、写入与撤销。成员 3 只生成回答或建议，不读取或写入源文件。
 
 ## 开发配置
 
-通过显式目录调用 `LlmConfigLoader.load(envDirectory)`，加载该目录的 `.env`，
-进程环境变量优先。也可以直接构造 `LlmConfig`，供 IDE 从项目设置和 Password Safe
-组装。不会自动查找父目录、读取 RAG 的密钥或选择供应商。
+正式 IDE 入口从全局 Language model 设置与 Password Safe 组装 `LlmConfig`，不读取 `.env`。
+以下环境变量仅用于显式开发工具：调用 `LlmConfigLoader.load(envDirectory)` 加载指定目录
+的 `.env`，进程环境变量优先。不会自动查找父目录、读取 RAG 密钥或选择供应商。
 
 | 参数 | 含义 |
 | --- | --- |
@@ -62,8 +57,9 @@ Diff 审核、批准、目标验证、写入与撤销。本模块不读取或写
 3. 系统提示明确代码和课件是数据，要求模型输出
    `{"answer":"... [[cite:R-id]]", "citations":["R-id"]}`。
 4. 校验每个 ID 来自本次证据；正文标记与 citations 必须一致，重复或伪造 ID 拒绝。
-   返回前将标记转为 UI 可读的 `[R-id]`，直接复用检索返回的 `SourceReference`，
-   不从模型结果构造页码。只返回被引用的来源。
+   返回前将标记转为内部 `[R-id]`，直接复用检索返回的 `SourceReference`，
+   不从模型结果构造页码。只返回被引用的来源及真实证据；UI 再映射为每条回答从 1
+   开始的可见编号，展开证据不重新检索或调用模型。
 5. 有证据必须有引用；成功空检索允许无引用回答，由服务添加固定的通用知识声明。
    检索失败不调用模型，也不转成通用知识答案。
 
@@ -76,10 +72,13 @@ Diff 审核、批准、目标验证、写入与撤销。本模块不读取或写
 `generate` 接收显式 `ModificationRequest`，检查相对路径（拒绝绝对路径、盘符、
 空路径段和 `.`/`..`）及选区确实出现在传入快照中。它不根据行号推断替换偏移。
 模型返回 `path`、`proposedFileText`、`summary`；目标必须与输入完全一致，替换全文和
-摘要必须非空，拒绝无变化的结果。原文件内容和请求 ID 来自输入，不信任模型重建。
-proposal ID 由本地数据模型生成。
+摘要必须非空。解析 JSON 后，将生成全文中的 CRLF 和单独 CR 统一为 IDE 文档使用的 LF；
+Java 字符串里的字面转义 `\r` / `\n` 保持不变。归一化后检查内容变化，只有换行格式
+不同的结果也按无变化拒绝。原始快照按输入原样保留，供后续过期检查；不修改输入快照、
+不改变原文件的磁盘编码或换行设置。proposal ID 由本地数据模型生成。
 
-成员 4 仍必须验证工程内实际路径（含符号链接）、准确的原文件快照及批准状态。
+成员 4 的 `ProposalValidator` 继续要求 LF，修改服务验证工程内实际路径（含符号链接）、
+准确的原文件快照及批准状态，批准后由 IDE 保存并保留文件的编码/换行约定。
 服务不会编译建议代码，也不声称通过测试；完整性和行为正确性需要 Diff 审阅与实际测试。
 当前不支持生成空文件或删除文件。
 
@@ -104,10 +103,11 @@ model.close();
 // knowledgeSearch 的所有者另外关闭它；chat 不关闭借用资源。
 ```
 
-IDE 项目服务可通过 `projectRagService::search` 提供 `KnowledgeSearch`。
-不要在 `CourseAiToolWindowFactory` 里隐式读取 `.env` 或使用静态共享密钥。
-成员 1 的 `RequestCoordinator` 仍有 30 秒截止时间；默认服务 25 秒先行结束，
-若修改配置需要一起考虑这两个时限。成员 4 可独立调用 generator。
+上面的代码展示独立开发工具的资源归属。正式 IDE 的项目会话通过
+`projectRagService::search` 提供 `KnowledgeSearch`，从 Password Safe 获取密钥。
+聊天的外层协调期限由模型配置的 timeout 加 5 秒派生；F2 生成阶段同样包含启动余量，
+人工 Diff 审阅不受生成期限限制。模型设置变化会使生成和待批准审阅失效；
+RAG 变化只取消相关 Chat，不误取消 F2。
 
 每个服务拥有虚拟线程任务及截止时间调度器，依赖启动也在后台执行。
 取消、超时和 close 取消当前阶段 future 并中断工作任务；关闭后拒绝新请求。
@@ -119,7 +119,7 @@ IDE 项目服务可通过 `projectRagService::search` 提供 `KnowledgeSearch`�
 
 ## 验证
 
-测试位于 `src/test/java/edu/teamc/courseaiassistant/llm/`，使用确定性模型替身和本地
+以下命令从仓库的 `code/` 目录运行。测试位于 `src/test/java/edu/teamc/courseaiassistant/llm/`，使用确定性模型替身和本地
 HTTP 服务，不需要真实 API Key，不发送课件或代码给外部模型。
 
 ```powershell
@@ -132,6 +132,10 @@ HTTP 服务，不需要真实 API Key，不发送课件或代码给外部模型�
 独立脚本从 Maven Central 下载约 3.5 MiB 的固定版本依赖并校验 SHA-256，
 只编译成员 3 服务、共享契约和对应测试，不需要 IDEA SDK，不替代全项目构建。
 依赖与报告均写入 Git 忽略的 `build/member3-check/`。
+
+换行回归包含 LF、CRLF、CR、混合换行、Java 字面转义保留及归一化后无变化拒绝；
+`modification/LlmF2IntegrationTest` 通过本地 HTTP 返回不同换行的生成文件，验证真实
+生成服务交给成员 4 的 `ProposalValidator` 后仍能通过，不放宽 Diff 侧校验。
 
 真实供应商/真实课件、IDE 真实聊天入口和 Diff 修改流程尚未验收。
 本地运行结果另见 `docs/member3-review.md`。

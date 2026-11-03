@@ -236,7 +236,7 @@ Add actual names and one concrete integration issue with its resolution. Confirm
 
 On-slide content:
 
-- Existing recorded results: 135 tests, zero failures/errors/skips.
+- Clean local verification on 3 November 2026: 137 tests across 22 suites, zero failures/errors/skips; plugin packaging and configuration/structure checks passed.
 - **[TO COMPLETE: actual final build revision and live acceptance outcomes].**
 - Delivered F0 + F2 with traceable evidence and explicit review.
 - Limits: no OCR, single-file changes, no automatic code correctness proof.
