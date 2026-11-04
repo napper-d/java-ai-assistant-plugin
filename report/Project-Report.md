@@ -3,11 +3,11 @@
 ## 1. Team Members
 
 | Member | Full name | Matriculation number | Contact number | Email |
-| --- | --- | --- | --- | --- |
-| 1 | 杜冰焱 | 2450319 | 17316397176 | 2450319@tongji.edu.cn |
-| 2 | 黄茂军 | [TO COMPLETE] | [TO COMPLETE] | [TO COMPLETE] |
-| 3 | 李一芃 | 2454326 | [TO COMPLETE] | 2454326@tongji.edu.cn |
-| 4 | 董泽福 | 2451201 | 18321233766 | 2451201@tongji.edu.cn |
+| --- | --- |----------------------|----------------| --- |
+| 1 | 杜冰焱 | 2450319              | 17316397176    | 2450319@tongji.edu.cn |
+| 2 | 黄茂军 | 2452776              | 15102351424    | Huang8888@tongji.edu.cn|
+| 3 | 李一芃 | 2454326              | [TO COMPLETE]  | 2454326@tongji.edu.cn |
+| 4 | 董泽福 | 2451201              | 18321233766    | 2451201@tongji.edu.cn |
 
 ## 2. Implemented Functionalities and Features
 
@@ -58,7 +58,11 @@ The installable archive is generated in `build/distributions/`. Install it throu
 
 These connections are shared by projects in the same IDE configuration. Keys are held separately in IDEA Password Safe rather than the ordinary settings XML. No provider or model is selected automatically.
 
-**Figure 1 — [TO COMPLETE: screenshot of Language model and Course RAG settings, with credentials concealed].**
+<div align="center" style="margin: 20px 0 28px; break-inside: avoid; page-break-inside: avoid;">
+  <img src="images/setting_screenshot.png" alt="Course RAG settings showing the embedding connection fields" width="720" style="display: block; max-width: 100%; height: auto; margin: 0 auto;" />
+  <p><strong>Figure 1 — Course RAG settings.</strong> Configure the embedding service URL, model and API key. Credential fields are empty in this screenshot.</p>
+</div>
+
 
 ### 3.3 Add Course Materials
 
@@ -66,7 +70,11 @@ Open the Course AI Assistant Tool Window and select **Course materials**. Click 
 
 The library retains the original file paths without copying the source documents. Re-adding an existing path refreshes the index from the current file contents. Use a row's trash icon to remove a material from the library; this does not delete the original file. Removing all materials prevents Chat from using an obsolete index.
 
-**Figure 2 — [TO COMPLETE: materials list and indexing progress].**
+<div align="center" style="margin: 20px 0 28px; break-inside: avoid; page-break-inside: avoid;">
+  <img src="images/materials_list.png" alt="Course materials list with an active indexing progress indicator" width="420" style="display: block; max-width: 100%; height: auto; margin: 0 auto;" />
+  <p><strong>Figure 2 — Course materials and indexing progress.</strong> The panel lists registered documents and provides controls for adding and removing materials.</p>
+</div>
+
 
 ### 3.4 Ask a Course Question and Inspect Evidence
 
@@ -76,13 +84,15 @@ For a grounded answer, inspect the numbered source rows containing the document 
 
 If retrieval succeeds but finds no sufficiently relevant material, the answer explicitly states that it uses general knowledge. A retrieval failure produces an error instead of an apparently grounded answer.
 
-**Figure 3 — [TO COMPLETE: grounded answer, numbered sources and expanded original excerpt].**
+<div align="center" style="margin: 20px 0 28px; break-inside: avoid; page-break-inside: avoid;">
+  <img src="images/chat.png" alt="Course-grounded chat answer with numbered sources and an expanded evidence excerpt" width="360" style="display: block; max-width: 100%; height: auto; margin: 0 auto;" />
+  <p><strong>Figure 3 — Answer with source evidence.</strong> Numbered citations link the answer to document pages. Expanded sources show the original text and retrieval metadata.</p>
+</div>
+
 
 ### 3.5 Ask about Selected Code
 
 Select a Java method or code segment in the editor. Right-click and choose **Ask Course AI Assistant**, then enter the question in Chat. The captured context includes the project-relative path, language, line range and selected text. Ordinary chat does not scan the whole project or send the entire file. Chat history is an in-memory display; previous turns are not sent as model conversation history.
-
-**Figure 4 — [TO COMPLETE: editor context menu and selected-code question].**
 
 ### 3.6 Request and Review a Code Modification
 
@@ -99,21 +109,25 @@ The demonstration uses two cases: correcting `SumDemo.sum` from subtraction to a
 
 Files under `examples/f2/` are outside the default Java source sets. A self-contained example containing `main` can be compiled and executed with JDK 21 source-file mode, for example `java examples/f2/SumDemo.java` from `code/`. Successful completion of `runIde` does not verify an example's output. F2 uses the Language model connection and does not require course-material indexing.
 
-![Bug-fix proposal in the built-in Diff Viewer](images/f2-bugfix-diff.jpg)
+<div align="center" style="margin: 20px 0 28px; break-inside: avoid; page-break-inside: avoid;">
+  <img src="images/f2-bugfix-diff.jpg" alt="Bug-fix proposal in the built-in Diff Viewer" width="720" style="display: block; max-width: 100%; height: auto; margin: 0 auto;" />
+  <p><strong>Figure 4(a) — Bug-fix review.</strong> The proposed change replaces subtraction with addition in <code>SumDemo.sum</code>. The built-in side-by-side Diff presents the original and proposed file, with explicit approval and cancellation controls.</p>
+</div>
 
-**Figure 5(a) — Bug-fix review.** The proposed change replaces subtraction with addition in `SumDemo.sum`. The built-in side-by-side Diff presents the original and proposed file, with explicit approval and cancellation controls.
+<div align="center" style="margin: 20px 0 28px; break-inside: avoid; page-break-inside: avoid;">
+  <img src="images/f2-refactor-diff.jpg" alt="Method-extraction proposal in the built-in Diff Viewer" width="720" style="display: block; max-width: 100%; height: auto; margin: 0 auto;" />
+  <p><strong>Figure 4(b) — Method-refactoring review.</strong> The proposal extracts <code>name.trim()</code> into a private <code>normalizeName</code> method and updates <code>greet</code> to call it, while preserving its signature. The existing <code>main</code> method and behavior checks remain unchanged.</p>
+</div>
 
-![Method-extraction proposal in the built-in Diff Viewer](images/f2-refactor-diff.jpg)
+<div align="center" style="margin: 20px 0 28px; break-inside: avoid; page-break-inside: avoid;">
+  <img src="images/f2-bugfix-result.jpg" alt="Corrected sum method and successful execution output" width="440" style="display: block; max-width: 100%; height: auto; margin: 0 auto;" />
+  <p><strong>Figure 5(a) — Bug-fix execution check.</strong> The corrected example prints <code>sum(2, 3) = 5</code> and <code>Test passed.</code>, providing a behavior check separate from launching the plugin IDE.</p>
+</div>
 
-**Figure 5(b) — Method-refactoring review.** The proposal extracts `name.trim()` into a private `normalizeName` method and updates `greet` to call it, while preserving its signature. The existing `main` method and behavior checks remain unchanged.
-
-![Corrected sum method and successful execution output](images/f2-bugfix-result.jpg)
-
-**Figure 6(a) — Bug-fix execution check.** The corrected example prints `sum(2, 3) = 5` and `Test passed.`, providing a behavior check separate from launching the plugin IDE.
-
-![Refactored greeting implementation and successful execution output](images/f2-refactor-result.jpg)
-
-**Figure 6(b) — Refactoring execution check.** The saved code shows `greet` calling the extracted `normalizeName` method. The unchanged checks for ordinary, empty and whitespace-padded names complete with `All checks passed.`, confirming the expected behavior for these three inputs after refactoring.
+<div align="center" style="margin: 20px 0 28px; break-inside: avoid; page-break-inside: avoid;">
+  <img src="images/f2-refactor-result.jpg" alt="Refactored greeting implementation and successful execution output" width="500" style="display: block; max-width: 100%; height: auto; margin: 0 auto;" />
+  <p><strong>Figure 5(b) — Refactoring execution check.</strong> The saved code shows <code>greet</code> calling the extracted <code>normalizeName</code> method. The unchanged checks for ordinary, empty and whitespace-padded names complete with <code>All checks passed.</code>, confirming the expected behavior for these three inputs after refactoring.</p>
+</div>
 
 ## 4. Technical Design and Considerations
 
