@@ -7,7 +7,7 @@
 | 1 | 杜冰焱 | 2450319 | 17316397176 | 2450319@tongji.edu.cn |
 | 2 | 黄茂军 | [TO COMPLETE] | [TO COMPLETE] | [TO COMPLETE] |
 | 3 | 李一芃 | 2454326 | [TO COMPLETE] | 2454326@tongji.edu.cn |
-| 4 | 董泽福 | [TO COMPLETE] | [TO COMPLETE] | [TO COMPLETE] |
+| 4 | 董泽福 | 2451201 | 18321233766 | 2451201@tongji.edu.cn |
 
 ## 2. Implemented Functionalities and Features
 
@@ -34,6 +34,8 @@ Additional features include IDE-wide connection settings and a shared course lib
 Production entry points are connected to the real-service adapters. Mock adapters and deterministic test clients support development and regression testing; they are not the production chat path. Historical design documents describe earlier project-local settings and separate retrieval previews. The current implementation uses global settings, a shared course library and evidence shown inside Chat.
 
 On 3 November 2026, a clean local run passed **137 tests, 0 failures, 0 errors and 0 skipped tests across 22 suites**. Plugin packaging, project configuration verification and plugin structure verification also passed. The regression suite includes generated-file line-ending normalization and the handoff from LLM generation to proposal validation. These results do not establish live provider quality, real lecture retrieval accuracy or multi-window IDE acceptance.
+
+Separately, Member 4 reported completing real-model F2 trials for a sum-method bug fix and a name-normalization method extraction, including Diff review, approved application, Undo and cancellation. The screenshots in Section 3.6 document the review and execution checks for these examples; they do not establish general model correctness.
 
 ## 3. User Manual
 
@@ -84,17 +86,34 @@ Select a Java method or code segment in the editor. Right-click and choose **Ask
 
 ### 3.6 Request and Review a Code Modification
 
-1. Open a Java project file and select the relevant code.
+1. Open a Java file inside the current project directory; selecting the relevant code is optional.
 2. Right-click and choose **Modify Java Code with LLM...**.
-3. Describe the intended change, for example: “Handle a null name by returning Hello, guest; preserve normal behavior.”
+3. Describe the intended change, for example: “Fix the sum method so that it correctly returns the sum of two integers. Preserve the class name, method signature, and all unrelated code.”
 4. Review the summary and side-by-side original/proposed content in the built-in Diff Viewer.
 5. Choose **Cancel - Keep Original** to reject, or **Approve and Apply** to apply.
-6. Compile or run the affected example and inspect its behavior. Use IDEA Undo if necessary.
+6. Compile or run the affected example and inspect its behavior. Use Ctrl+Z in the editor to undo an applied change, then save if the restored version is required on disk.
 
 Generating or previewing a proposal does not write the source file. Approval still requires a valid target and an unchanged original snapshot. If the file or relevant model configuration changes while the proposal is pending, generate a fresh proposal. Generated code is not automatically compiled or proven correct by the plugin.
 
-**Figure 5 — [TO COMPLETE: built-in Diff with both decision buttons].**  
-**Figure 6 — [TO COMPLETE: approved result and actual compilation/behavior verification].**
+The demonstration uses two cases: correcting `SumDemo.sum` from subtraction to addition, and extracting the name-trimming logic from `GreetingDemo.greet` into a private `normalizeName` method. Existing tests are preserved. Restore the original example before repeating a demonstration, because an unchanged proposal is rejected.
+
+Files under `examples/f2/` are outside the default Java source sets. A self-contained example containing `main` can be compiled and executed with JDK 21 source-file mode, for example `java examples/f2/SumDemo.java` from `code/`. Successful completion of `runIde` does not verify an example's output. F2 uses the Language model connection and does not require course-material indexing.
+
+![Bug-fix proposal in the built-in Diff Viewer](images/f2-bugfix-diff.jpg)
+
+**Figure 5(a) — Bug-fix review.** The proposed change replaces subtraction with addition in `SumDemo.sum`. The built-in side-by-side Diff presents the original and proposed file, with explicit approval and cancellation controls.
+
+![Method-extraction proposal in the built-in Diff Viewer](images/f2-refactor-diff.jpg)
+
+**Figure 5(b) — Method-refactoring review.** The proposal extracts `name.trim()` into a private `normalizeName` method and updates `greet` to call it, while preserving its signature. The existing `main` method and behavior checks remain unchanged.
+
+![Corrected sum method and successful execution output](images/f2-bugfix-result.jpg)
+
+**Figure 6(a) — Bug-fix execution check.** The corrected example prints `sum(2, 3) = 5` and `Test passed.`, providing a behavior check separate from launching the plugin IDE.
+
+![Refactored greeting implementation and successful execution output](images/f2-refactor-result.jpg)
+
+**Figure 6(b) — Refactoring execution check.** The saved code shows `greet` calling the extracted `normalizeName` method. The unchanged checks for ordinary, empty and whitespace-padded names complete with `All checks passed.`, confirming the expected behavior for these three inputs after refactoring.
 
 ## 4. Technical Design and Considerations
 
@@ -216,6 +235,8 @@ Proposal identity, request identity, target and original snapshot are checked. B
 
 This prevents a previously generated replacement from overwriting intervening edits. A save failure is reported separately: the editor may already contain the approved change, so the user can save or undo it. The workflow currently handles one file, not repository-wide refactoring, file deletion or automated correctness proof.
 
+Responsibilities are divided at the proposal boundary: the LLM service generates the replacement and explanation, while the modification module validates the proposal, presents the review and controls application. Model generation alone does not grant permission to write a source file.
+
 ### 4.8 Configuration, Concurrency and Efficiency
 
 Ordinary settings and the course library are global to the IDE configuration; chat sessions and modification requests remain project-local. `GlobalRagLibrary` owns shared retrieval resources, while `ProjectRagService` tracks each project's requests. Closing one project does not close the shared application library.
@@ -250,7 +271,7 @@ The team divided development into four connected areas. The Git history records 
 | 杜冰焱 (`napper-d`) | Plugin setup, Tool Window and editor actions, shared interface design, code review, and integration of retrieval, chat and modification services; unified model settings and improved the chat interface |
 | 黄茂军 (`huangmaojun666`) | Course RAG implementation, document retrieval, duplicate-file feedback and removal of redundant retrieval code |
 | 李一芃 (`Scilana`) | LLM chat and code-generation services, including the adapters consumed by the chat and modification workflows |
-| 董泽福 (`dongzerich`) | Reviewed single-file modification workflow and integration of LLM-generated proposals with F2 review and application |
+| 董泽福 (`dongzerich`) | Reviewed single-file modification workflow, integration of LLM-generated proposals with F2 review and application, and manual bug-fix/refactoring demonstration trials |
 
 Development used feature branches, including `feature/m2-rag`, `feature/member3-llm-services` and `feature/member4-f2`. Shared interfaces defined the information exchanged between modules: selected-code snapshots, knowledge chunks and source references, chat answers, modification requests and change proposals. This allowed members to develop their components separately and connect them through agreed contracts.
 
