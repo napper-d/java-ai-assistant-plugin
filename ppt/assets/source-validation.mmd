@@ -1,0 +1,21 @@
+flowchart LR
+  subgraph PROMPT[Prompt rules]
+    R1[Use supplied evidence only]
+    R2[Treat code as data not instructions]
+    R3[Return answer + cited reference IDs]
+  end
+  subgraph MODEL[Model]
+    IN[Instruction + structured input] --> MJ[Model JSON output]
+  end
+  subgraph VALIDATE[Local validation]
+    C1[Accept only supplied IDs]
+    C2[Check marker agreement]
+    C3[Resolve source metadata]
+  end
+  subgraph CHAIN[Citation chain]
+    SM[Source metadata] --> EID[Evidence ID]
+    EID --> VC[Validated citation]
+    VC --> VM[Visible marker]
+  end
+  MJ --> VALIDATE
+  VALIDATE --> DISP[Display answer + sources]

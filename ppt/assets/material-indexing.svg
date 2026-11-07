@@ -1,0 +1,193 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+<title id="title">Course Material Indexing</title>
+<desc id="desc">Documents are parsed page by page, split into knowledge chunks with source metadata, converted to embeddings, and stored in a local index. Paragraph and sentence boundaries are preserved where possible.</desc>
+<defs>
+  <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse">
+    <path d="M0 0 L8 4 L0 8 Z" fill="#64748b"/>
+  </marker>
+  <marker id="arrow-green" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse">
+    <path d="M0 0 L8 4 L0 8 Z" fill="#059669"/>
+  </marker>
+</defs>
+<rect width="1600" height="900" fill="#ffffff"/>
+<style>
+  text { font-family: Arial, Helvetica, sans-serif; fill: #172b42 }
+  .head { font-size: 26px; font-weight: 700 }
+  .body { font-size: 20px }
+  .small { font-size: 17px; fill: #52657b }
+  .label { font-size: 19px; font-weight: 700 }
+  .tech { font-size: 16px; fill: #64748b; font-style: italic }
+  .step-num { font-size: 22px; font-weight: 700; fill: #ffffff }
+</style>
+
+<!-- Header -->
+<text x="40" y="48" class="head" text-anchor="start">Course Material Indexing</text>
+<text x="1560" y="46" class="small" text-anchor="end">COURSE AI ASSISTANT</text>
+
+<!-- Main flow background -->
+<rect x="40" y="90" width="1520" height="280" rx="16" fill="#f5f7fa" stroke="#e2e8f0" stroke-width="1.5"/>
+<text x="60" y="120" class="small">Document processing pipeline</text>
+
+<!-- Step 1: Source documents -->
+<g transform="translate(80, 150)">
+  <rect width="200" height="180" rx="12" fill="#fff2e5" stroke="#ebd1b1" stroke-width="1.5"/>
+  <circle cx="24" cy="24" r="16" fill="#d97706"/>
+  <text x="24" y="30" class="step-num" text-anchor="middle">1</text>
+  <text x="100" y="60" class="label" text-anchor="middle">Source documents</text>
+  <text x="100" y="95" class="body" text-anchor="middle">PDF files</text>
+  <text x="100" y="125" class="body" text-anchor="middle">PPTX files</text>
+  <text x="100" y="160" class="tech" text-anchor="middle">PDFBox / Apache POI</text>
+</g>
+
+<!-- Arrow 1→2 -->
+<path d="M290 240 H340" fill="none" stroke="#64748b" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+<!-- Step 2: Page extraction -->
+<g transform="translate(350, 150)">
+  <rect width="220" height="180" rx="12" fill="#e9f0ff" stroke="#c6d6f5" stroke-width="1.5"/>
+  <circle cx="24" cy="24" r="16" fill="#3b82f6"/>
+  <text x="24" y="30" class="step-num" text-anchor="middle">2</text>
+  <text x="110" y="60" class="label" text-anchor="middle">Page / slide text</text>
+  <text x="110" y="95" class="body" text-anchor="middle">Extract per page</text>
+  <text x="110" y="125" class="body" text-anchor="middle">Preserve location</text>
+  <text x="110" y="160" class="small" text-anchor="middle">doc + page/slide ID</text>
+</g>
+
+<!-- Arrow 2→3 -->
+<path d="M580 240 H630" fill="none" stroke="#64748b" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+<!-- Step 3: Chunking -->
+<g transform="translate(640, 150)">
+  <rect width="260" height="180" rx="12" fill="#e7f5ef" stroke="#b9dfcd" stroke-width="1.5"/>
+  <circle cx="24" cy="24" r="16" fill="#059669"/>
+  <text x="24" y="30" class="step-num" text-anchor="middle">3</text>
+  <text x="130" y="60" class="label" text-anchor="middle">Knowledge chunks</text>
+  <text x="130" y="92" class="body" text-anchor="middle">Max 800 code points</text>
+  <text x="130" y="120" class="body" text-anchor="middle">Overlap up to 120</text>
+  <text x="130" y="155" class="small" text-anchor="middle">Paragraph → sentence → word</text>
+</g>
+
+<!-- Arrow 3→4 -->
+<path d="M910 240 H960" fill="none" stroke="#64748b" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+<!-- Step 4: Embeddings -->
+<g transform="translate(970, 150)">
+  <rect width="220" height="180" rx="12" fill="#eef0ff" stroke="#cdd1f2" stroke-width="1.5"/>
+  <circle cx="24" cy="24" r="16" fill="#4f46e5"/>
+  <text x="24" y="30" class="step-num" text-anchor="middle">4</text>
+  <text x="110" y="60" class="label" text-anchor="middle">Embeddings</text>
+  <text x="110" y="95" class="body" text-anchor="middle">Text → vector</text>
+  <text x="110" y="125" class="body" text-anchor="middle">Semantic meaning</text>
+  <text x="110" y="160" class="tech" text-anchor="middle">Embeddings API</text>
+</g>
+
+<!-- Arrow 4→5 -->
+<path d="M1200 240 H1250" fill="none" stroke="#64748b" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+<!-- Step 5: Local index -->
+<g transform="translate(1260, 150)">
+  <rect width="260" height="180" rx="12" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1.5"/>
+  <circle cx="24" cy="24" r="16" fill="#7c3aed"/>
+  <text x="24" y="30" class="step-num" text-anchor="middle">5</text>
+  <text x="130" y="60" class="label" text-anchor="middle">Local index</text>
+  <text x="130" y="95" class="body" text-anchor="middle">JSON snapshot</text>
+  <text x="130" y="125" class="body" text-anchor="middle">Persisted vectors</text>
+  <text x="130" y="160" class="small" text-anchor="middle">chunk + vector + source</text>
+</g>
+
+<!-- Detail section -->
+<rect x="40" y="410" width="760" height="440" rx="16" fill="#f5f7fa" stroke="#e2e8f0" stroke-width="1.5"/>
+<text x="60" y="445" class="label">Chunking strategy</text>
+
+<!-- Chunking detail illustration -->
+<g transform="translate(80, 470)">
+  <!-- Original paragraph -->
+  <rect width="680" height="60" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="20" y="25" class="small">Original paragraph (may exceed 800 code points)</text>
+  <rect x="20" y="35" width="640" height="12" rx="2" fill="#e2e8f0"/>
+  
+  <!-- Split indicator -->
+  <path d="M340 60 V90" fill="none" stroke="#059669" stroke-width="2" stroke-dasharray="4 3"/>
+  <text x="355" y="80" class="small" fill="#059669">split at sentence boundary</text>
+  
+  <!-- Chunk 1 -->
+  <rect y="100" width="320" height="80" rx="8" fill="#e7f5ef" stroke="#b9dfcd" stroke-width="1.5"/>
+  <text x="20" y="128" class="body" fill="#065f46">Chunk A</text>
+  <text x="20" y="155" class="small">text + source metadata</text>
+  <rect x="20" y="162" width="280" height="8" rx="2" fill="#10b981"/>
+  
+  <!-- Chunk 2 -->
+  <rect x="360" y="100" width="320" height="80" rx="8" fill="#e7f5ef" stroke="#b9dfcd" stroke-width="1.5"/>
+  <text x="380" y="128" class="body" fill="#065f46">Chunk B</text>
+  <text x="380" y="155" class="small">text + source metadata</text>
+  <rect x="380" y="162" width="280" height="8" rx="2" fill="#10b981"/>
+  
+  <!-- Overlap indicator -->
+  <rect x="260" y="100" width="60" height="80" rx="0" fill="#f59e0b" opacity="0.25"/>
+  <rect x="360" y="100" width="60" height="80" rx="0" fill="#f59e0b" opacity="0.25"/>
+  <text x="340" y="210" class="small" text-anchor="middle" fill="#d97706">← overlap (up to 120 code points) →</text>
+</g>
+
+<!-- Key principles -->
+<g transform="translate(80, 720)">
+  <text x="0" y="0" class="label">Key principles</text>
+  <circle cx="10" cy="28" r="4" fill="#059669"/>
+  <text x="25" y="34" class="body">Preserve document and page/slide with every chunk</text>
+  <circle cx="10" cy="58" r="4" fill="#059669"/>
+  <text x="25" y="64" class="body">Respect paragraph and sentence boundaries</text>
+  <circle cx="10" cy="88" r="4" fill="#059669"/>
+  <text x="25" y="94" class="body">800 code points is character scale, not model tokens</text>
+</g>
+
+<!-- Storage structure -->
+<rect x="840" y="410" width="720" height="440" rx="16" fill="#f5f7fa" stroke="#e2e8f0" stroke-width="1.5"/>
+<text x="860" y="445" class="label">Stored data per chunk</text>
+
+<!-- Data structure illustration -->
+<g transform="translate(880, 470)">
+  <rect width="640" height="340" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+  
+  <!-- Field rows -->
+  <rect x="1" y="1" width="200" height="55" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="100" y="35" class="label" text-anchor="middle">Field</text>
+  <rect x="201" y="1" width="438" height="55" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="420" y="35" class="label" text-anchor="middle">Content</text>
+  
+  <rect x="1" y="56" width="200" height="55" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="100" y="88" class="body" text-anchor="middle">chunk_id</text>
+  <rect x="201" y="56" width="438" height="55" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="220" y="88" class="body">Unique identifier</text>
+  
+  <rect x="1" y="111" width="200" height="55" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="100" y="143" class="body" text-anchor="middle">document_id</text>
+  <rect x="201" y="111" width="438" height="55" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="220" y="143" class="body">Source file reference</text>
+  
+  <rect x="1" y="166" width="200" height="55" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="100" y="198" class="body" text-anchor="middle">page_or_slide</text>
+  <rect x="201" y="166" width="438" height="55" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="220" y="198" class="body">Location within document</text>
+  
+  <rect x="1" y="221" width="200" height="55" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="100" y="253" class="body" text-anchor="middle">text</text>
+  <rect x="201" y="221" width="438" height="55" fill="#e7f5ef" stroke="#b9dfcd" stroke-width="1"/>
+  <text x="220" y="253" class="body" fill="#065f46">Original text content</text>
+  
+  <rect x="1" y="276" width="200" height="63" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="100" y="313" class="body" text-anchor="middle">embedding</text>
+  <rect x="201" y="276" width="438" height="63" fill="#eef0ff" stroke="#cdd1f2" stroke-width="1"/>
+  <text x="220" y="305" class="body" fill="#3730a3">[0.023, -0.15, 0.87, ...]</text>
+  <text x="220" y="328" class="small">Vector representation</text>
+</g>
+
+<!-- Legend -->
+<g transform="translate(880, 830)">
+  <rect width="16" height="16" rx="3" fill="#e7f5ef" stroke="#b9dfcd" stroke-width="1"/>
+  <text x="25" y="13" class="small">Text content</text>
+  <rect x="140" width="16" height="16" rx="3" fill="#eef0ff" stroke="#cdd1f2" stroke-width="1"/>
+  <text x="165" y="13" class="small">Vector embedding</text>
+  <rect x="310" width="16" height="16" rx="3" fill="#f59e0b" opacity="0.3"/>
+  <text x="335" y="13" class="small">Overlap region</text>
+</g>
+
+</svg>

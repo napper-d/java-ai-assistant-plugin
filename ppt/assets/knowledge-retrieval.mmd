@@ -1,0 +1,13 @@
+flowchart TB
+  subgraph STORAGE[Stored data]
+    REG[Original file registry<br/>Track registered materials]
+    CHK[Chunk text + vector + source<br/>Retrieve evidence with location]
+    MAN[Index manifest<br/>Snapshot integrity and config]
+  end
+  subgraph FLOW[Retrieval flow]
+    Q[Question] --> QE[One query embedding<br/>/embeddings API]
+    QE --> SS[Similarity search<br/>vs stored document vectors]
+    SS --> TF[Threshold filter<br/>Min score: 0.70]
+    TF --> RC[Up to 5 chunks<br/>Sorted by similarity]
+  end
+  STORAGE -.-> SS

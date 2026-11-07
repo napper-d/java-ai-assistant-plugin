@@ -18,8 +18,12 @@ repositories {
 dependencies {
     implementation("org.commonmark:commonmark:0.30.0")
     implementation("org.commonmark:commonmark-ext-gfm-tables:0.30.0")
-    implementation("dev.langchain4j:langchain4j:1.7.1")
-    implementation("org.apache.pdfbox:pdfbox:3.0.8")
+    implementation("dev.langchain4j:langchain4j:1.7.1") {
+        exclude(group = "org.slf4j")
+    }
+    implementation("org.apache.pdfbox:pdfbox:3.0.8") {
+        exclude(group = "org.slf4j")
+    }
     implementation("org.apache.poi:poi-ooxml:6.0.0")
     implementation("com.google.code.gson:gson:2.13.2")
     implementation("io.github.cdimascio:dotenv-java:3.2.0")

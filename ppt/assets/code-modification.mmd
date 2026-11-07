@@ -1,0 +1,14 @@
+flowchart TB
+  IN[Instruction + original file snapshot] --> LLM[LLM proposal<br/>target path + replacement + explanation]
+  LLM --> VAL[Validate target and replacement]
+  VAL --> DIFF[Built-in side-by-side Diff]
+  DIFF --> DEC{User decision}
+  DEC -->|Cancel| KEEP[Keep original<br/>source unchanged]
+  DEC -->|Approve| RECHECK[Recheck current file state]
+  RECHECK --> WRITE[Undoable write + save]
+  
+  subgraph CONSTRAINTS[Key constraints]
+    ONE[One Java file per proposal]
+    NOFILE[Generation and preview do not write]
+    SNAPSHOT[Full file snapshot for accurate Diff]
+  end

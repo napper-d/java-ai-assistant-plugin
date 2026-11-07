@@ -1,0 +1,164 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+<title id="title">Knowledge Storage and Retrieval</title>
+<desc id="desc">The index stores document vectors, chunk text with embeddings, and a manifest for integrity. Questions generate one new embedding and search against stored vectors with threshold filtering.</desc>
+<defs>
+  <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse">
+    <path d="M0 0 L8 4 L0 8 Z" fill="#64748b"/>
+  </marker>
+  <marker id="arrow-blue" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse">
+    <path d="M0 0 L8 4 L0 8 Z" fill="#3b82f6"/>
+  </marker>
+  <marker id="arrow-green" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse">
+    <path d="M0 0 L8 4 L0 8 Z" fill="#059669"/>
+  </marker>
+</defs>
+<rect width="1600" height="900" fill="#ffffff"/>
+<style>
+  text { font-family: Arial, Helvetica, sans-serif; fill: #172b42 }
+  .head { font-size: 26px; font-weight: 700 }
+  .body { font-size: 20px }
+  .small { font-size: 17px; fill: #52657b }
+  .label { font-size: 19px; font-weight: 700 }
+  .tech { font-size: 16px; fill: #64748b; font-style: italic }
+</style>
+
+<!-- Header -->
+<text x="40" y="48" class="head" text-anchor="start">Knowledge Storage and Retrieval</text>
+<text x="1560" y="46" class="small" text-anchor="end">COURSE AI ASSISTANT</text>
+
+<!-- Storage section (top) -->
+<rect x="40" y="90" width="1520" height="320" rx="16" fill="#f5f7fa" stroke="#e2e8f0" stroke-width="1.5"/>
+<text x="60" y="125" class="label">Stored data</text>
+<text x="1540" y="125" class="tech" text-anchor="end">LangChain4j local vector store · JSON snapshots</text>
+
+<!-- Storage item 1: File registry -->
+<g transform="translate(80, 150)">
+  <rect width="420" height="230" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+  <rect width="420" height="50" rx="12" fill="#fff2e5" stroke="#ebd1b1" stroke-width="1.5"/>
+  <rect y="38" width="420" height="12" fill="#fff2e5"/>
+  <text x="210" y="33" class="label" text-anchor="middle" fill="#92400e">Original file registry</text>
+  
+  <text x="30" y="85" class="body">Track registered materials</text>
+  <text x="30" y="120" class="small">• File path and name</text>
+  <text x="30" y="148" class="small">• Registration timestamp</text>
+  <text x="30" y="176" class="small">• Page/slide count</text>
+  <text x="30" y="204" class="small">• Configuration hash</text>
+</g>
+
+<!-- Storage item 2: Chunk vectors -->
+<g transform="translate(540, 150)">
+  <rect width="500" height="230" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+  <rect width="500" height="50" rx="12" fill="#e7f5ef" stroke="#b9dfcd" stroke-width="1.5"/>
+  <rect y="38" width="500" height="12" fill="#e7f5ef"/>
+  <text x="250" y="33" class="label" text-anchor="middle" fill="#065f46">Chunk text + vector + source</text>
+  
+  <text x="30" y="85" class="body">Retrieve evidence and preserve location</text>
+  <text x="30" y="120" class="small">• Chunk text content</text>
+  <text x="30" y="148" class="small">• Embedding vector (float array)</text>
+  <text x="30" y="176" class="small">• Source document + page/slide</text>
+  <text x="30" y="204" class="small">• Original text excerpt</text>
+</g>
+
+<!-- Storage item 3: Index manifest -->
+<g transform="translate(1080, 150)">
+  <rect width="440" height="230" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+  <rect width="440" height="50" rx="12" fill="#eef0ff" stroke="#cdd1f2" stroke-width="1.5"/>
+  <rect y="38" width="440" height="12" fill="#eef0ff"/>
+  <text x="220" y="33" class="label" text-anchor="middle" fill="#3730a3">Index manifest</text>
+  
+  <text x="30" y="85" class="body">Snapshot integrity and compatibility</text>
+  <text x="30" y="120" class="small">• Index version</text>
+  <text x="30" y="148" class="small">• Embedding model ID</text>
+  <text x="30" y="176" class="small">• Chunk count</text>
+  <text x="30" y="204" class="small">• Configuration parameters</text>
+</g>
+
+<!-- Retrieval flow section (bottom) -->
+<rect x="40" y="450" width="1520" height="410" rx="16" fill="#f5f7fa" stroke="#e2e8f0" stroke-width="1.5"/>
+<text x="60" y="485" class="label">Retrieval flow</text>
+<text x="1540" y="485" class="tech" text-anchor="end">Per-question processing</text>
+
+<!-- Question input -->
+<g transform="translate(80, 520)">
+  <rect width="180" height="100" rx="12" fill="#fff2e5" stroke="#ebd1b1" stroke-width="1.5"/>
+  <text x="90" y="40" class="label" text-anchor="middle" fill="#92400e">Question</text>
+  <text x="90" y="70" class="small" text-anchor="middle">User input</text>
+</g>
+
+<!-- Arrow to embedding -->
+<path d="M270 570 H320" fill="none" stroke="#64748b" stroke-width="2.5" marker-end="url(#arrow)"/>
+<text x="295" y="558" class="small" text-anchor="middle">text</text>
+
+<!-- Query embedding -->
+<g transform="translate(330, 520)">
+  <rect width="200" height="100" rx="12" fill="#eef0ff" stroke="#cdd1f2" stroke-width="1.5"/>
+  <text x="100" y="35" class="label" text-anchor="middle" fill="#3730a3">Query embedding</text>
+  <text x="100" y="65" class="body" text-anchor="middle">One new vector</text>
+  <text x="100" y="88" class="tech" text-anchor="middle">/embeddings API</text>
+</g>
+
+<!-- Arrow to search -->
+<path d="M540 570 H600" fill="none" stroke="#64748b" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+<!-- Similarity search -->
+<g transform="translate(610, 500)">
+  <rect width="260" height="140" rx="12" fill="#e7f5ef" stroke="#b9dfcd" stroke-width="1.5"/>
+  <text x="130" y="35" class="label" text-anchor="middle" fill="#065f46">Similarity search</text>
+  <text x="130" y="68" class="body" text-anchor="middle">Compare against</text>
+  <text x="130" y="93" class="body" text-anchor="middle">stored document vectors</text>
+  <text x="130" y="123" class="tech" text-anchor="middle">Cosine similarity</text>
+  
+  <!-- Reuse indicator -->
+  <rect x="180" y="-25" width="100" height="28" rx="6" fill="#10b981"/>
+  <text x="230" y="-5" class="small" text-anchor="middle" fill="#ffffff" font-weight="700">REUSE</text>
+</g>
+
+<!-- Connection from stored vectors to search -->
+<path d="M790 420 V460 H740 V500" fill="none" stroke="#059669" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow-green)"/>
+<text x="800" y="455" class="small" fill="#059669">document vectors</text>
+
+<!-- Arrow to threshold -->
+<path d="M880 570 H940" fill="none" stroke="#64748b" stroke-width="2.5" marker-end="url(#arrow)"/>
+<text x="910" y="558" class="small" text-anchor="middle">scores</text>
+
+<!-- Threshold filter -->
+<g transform="translate(950, 520)">
+  <rect width="200" height="100" rx="12" fill="#fef3c7" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="100" y="35" class="label" text-anchor="middle" fill="#92400e">Threshold filter</text>
+  <text x="100" y="65" class="body" text-anchor="middle">Min score: 0.70</text>
+  <text x="100" y="90" class="small" text-anchor="middle">Not calibrated</text>
+</g>
+
+<!-- Arrow to results -->
+<path d="M1160 570 H1220" fill="none" stroke="#64748b" stroke-width="2.5" marker-end="url(#arrow)"/>
+<text x="1190" y="558" class="small" text-anchor="middle">pass</text>
+
+<!-- Results -->
+<g transform="translate(1230, 505)">
+  <rect width="290" height="130" rx="12" fill="#e9f0ff" stroke="#c6d6f5" stroke-width="1.5"/>
+  <text x="145" y="35" class="label" text-anchor="middle" fill="#1e40af">Retrieved chunks</text>
+  <text x="145" y="68" class="body" text-anchor="middle">Up to 5 chunks</text>
+  <text x="145" y="98" class="body" text-anchor="middle">Sorted by similarity</text>
+  <text x="145" y="123" class="small" text-anchor="middle">With source metadata</text>
+</g>
+
+<!-- Legend -->
+<g transform="translate(80, 820)">
+  <rect width="16" height="16" rx="3" fill="#e7f5ef" stroke="#b9dfcd" stroke-width="1"/>
+  <text x="25" y="13" class="small">Pre-built document vectors (reused)</text>
+  
+  <rect x="280" width="16" height="16" rx="3" fill="#eef0ff" stroke="#cdd1f2" stroke-width="1"/>
+  <text x="305" y="13" class="small">Per-question new vector</text>
+  
+  <path x1="540" y1="8" x2="580" y2="8" stroke="#059669" stroke-width="2" stroke-dasharray="6 4"/>
+  <text x="590" y="13" class="small">Reuse connection</text>
+  
+  <rect x="780" width="16" height="16" rx="3" fill="#10b981"/>
+  <text x="805" y="13" class="small">Reuse indicator</text>
+</g>
+
+<!-- Note -->
+<text x="80" y="680" class="small">Exhaustive similarity comparison suits current course library scale.</text>
+<text x="80" y="705" class="small">Index persists between questions — no re-parsing of course materials.</text>
+
+</svg>

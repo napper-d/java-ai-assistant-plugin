@@ -1,0 +1,22 @@
+flowchart LR
+  subgraph SOURCE[Source documents]
+    PDF[PDF files]
+    PPTX[PPTX files]
+  end
+  subgraph EXTRACT[Page extraction]
+    PAGE[Page / slide text<br/>Preserve location]
+  end
+  subgraph CHUNK[Chunking]
+    CK[Knowledge chunks<br/>Max 800 code points<br/>Overlap up to 120]
+  end
+  subgraph EMBED[Embeddings]
+    EMB[Text → vector<br/>Semantic meaning]
+  end
+  subgraph INDEX[Local index]
+    IDX[(JSON snapshot<br/>chunk + vector + source)]
+  end
+  PDF --> PAGE
+  PPTX --> PAGE
+  PAGE --> CK
+  CK --> EMB
+  EMB --> IDX

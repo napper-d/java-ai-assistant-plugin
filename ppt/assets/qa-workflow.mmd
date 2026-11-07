@@ -1,0 +1,18 @@
+flowchart LR
+  subgraph INPUT[Inputs to prompt]
+    Q[Question]
+    SC[Selected code<br/>optional]
+    RC[Retrieved chunks<br/>up to 5]
+  end
+  subgraph LLM[Prompt + LLM]
+    P[Structured prompt] --> M[OpenAI-compatible<br/>/chat/completions<br/>non-streaming]
+  end
+  subgraph OUTPUT[Output]
+    A[Answer<br/>with citation markers]
+    E[Cited evidence<br/>document + page + excerpt]
+  end
+  Q --> P
+  SC --> P
+  RC --> P
+  M --> A
+  M --> E

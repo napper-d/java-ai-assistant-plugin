@@ -1,0 +1,36 @@
+flowchart TB
+  subgraph IDE[IDE integration]
+    UI[Tool Window / Editor Actions / Context Collector]
+  end
+  subgraph APP[Application coordination — project scope]
+    P[ProjectLlmService / ProjectRagService<br/>Sessions, async requests and cancellation]
+  end
+  subgraph CORE[Core capabilities]
+    R[Course retrieval<br/>KnowledgeSearch<br/>Parse / chunk / index / search]
+    C[Grounded chat<br/>ChatService<br/>Prompt / answer and citation validation]
+    M[Reviewed changes<br/>ModificationService + CodeGenerationService<br/>Generate / validate / Diff / approve]
+  end
+  subgraph RES[Resources and services]
+    IDX[(Local index<br/>JSON snapshots)]
+    EMB[Embedding API<br/>/embeddings]
+    LLM[Chat API<br/>/chat/completions]
+    FILE[Project source files<br/>IDE write command + Undo]
+  end
+  subgraph SHARED[Shared IDE state — application scope]
+    CFG[Global settings]
+    KEYS[Password Safe<br/>Separate chat and embedding credentials]
+    LIB[GlobalRagLibrary<br/>Shared materials and index lifecycle]
+  end
+  UI --> P
+  P --> R
+  P --> C
+  P --> M
+  C -->|retrieve evidence| R
+  R --> IDX
+  R --> EMB
+  C -->|shared HTTP client| LLM
+  M -->|shared HTTP client| LLM
+  M -->|approved and revalidated only| FILE
+  CFG -.-> P
+  KEYS -.-> P
+  LIB -.-> R
